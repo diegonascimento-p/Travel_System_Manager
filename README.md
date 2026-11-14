@@ -13,6 +13,8 @@ event, the distance from your current position to the event's location.
   - `GET /api/trips/:id`, `POST /api/trips`, `PUT /api/trips/:id` – read, create, update a trip
     (`date` YYYY-MM-DD, `origin`, `destination`, `distance` in miles, `purpose`; all required)
   - `GET /api/trips/summary?month=YYYY-MM` – total miles and trip count of a month
+  - `GET /api/settings`, `PUT /api/settings` – the account's settings, `{ "distanceUnit": "mi" | "km" }`
+    (defaults to `mi` until saved). Distances are always stored and calculated in miles.
 
   Schema changes are versioned SQL files in `backend/migrations/`, applied in order on start.
 - `frontend/` – React + Vite app with a sidebar layout styled after the Lovable HireFlow
@@ -20,6 +22,9 @@ event, the distance from your current position to the event's location.
   add/edit trip form. The "Calendar events" screen signs in with Google, lists this year's
   events and lets you download a PDF of miles traveled per event for any year from 1900 to
   today. The PDF is generated in the browser.
+  The Settings screen saves the account's distance unit (Miles or Kilometers); every distance,
+  including calendar event mileage, totals and the PDF, is shown in it with one decimal place
+  and the `mi` / `km` label (1 mile = 1.609344 km).
 
 ## Running locally
 
