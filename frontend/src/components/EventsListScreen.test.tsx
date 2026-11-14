@@ -1,24 +1,20 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { EventsServices } from "../controllers/yearlyEventsPdfController";
 import type { EventWithMiles } from "../models/event";
-import { renderWithUnit } from "../testing/fakeSettingsServices";
 import { EventsListScreen } from "./EventsListScreen";
-
-const origin = { latitude: 1, longitude: 2 };
 
 const eventsByYear: Record<number, EventWithMiles[]> = {
   2024: [
-    { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 42 },
-    { id: "b", name: "Workshop", date: "2024-06-01", location: "Hall", miles: 7.5 },
-    { id: "c", name: "Review", date: "2024-12-31", location: "Office", miles: 3 },
+    { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", distanceMeters: 67_592, miles: 42 },
+    { id: "b", name: "Workshop", date: "2024-06-01", location: "Hall", distanceMeters: 12_070, miles: 7.5 },
+    { id: "c", name: "Review", date: "2024-12-31", location: "Office", distanceMeters: 4_828, miles: 3 },
   ],
 };
 
 function makeServices(overrides: Partial<EventsServices> = {}) {
   return {
-    getCurrentPosition: vi.fn(async () => origin),
-    fetchEventsForYear: vi.fn(async (year: number) => eventsByYear[year] ?? []),
+    fetchEventsForYear: vi.fn(async (year: number) => ({ baseAddress: "Home" as string | null, events: eventsByYear[year] ?? [] })),
     downloadEventsPdf: vi.fn(async () => {}),
     ...overrides,
   };
@@ -33,7 +29,7 @@ describe("EventsListScreen", () => {
     expect(select.closest(".download-pdf")).toBe(button.closest(".download-pdf"));
     expect(select).toHaveValue(String(new Date().getFullYear()));
     expect(screen.getByRole("option", { name: "1900" })).toBeInTheDocument();
-    await screen.findByText(/No events this year|Distance traveled/);
+    await screen.findByText(/No events this year|Round trip/);
   });
 
   it("downloads a PDF listing every event of the selected year", async () => {
@@ -44,7 +40,7 @@ describe("EventsListScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
 
     await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
-    expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token", origin);
+    expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token");
     expect(services.downloadEventsPdf).toHaveBeenCalledWith({
       title: "Distance traveled in 2024",
       fileName: "distance-traveled-2024.pdf",
@@ -65,7 +61,7 @@ describe("EventsListScreen", () => {
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Year" }), "2022");
     await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
 
-    await waitFor(() => expect(services.fetchEventsForYear).toHaveBeenCalledWith(2022, "token", origin));
+    await waitFor(() => expect(services.fetchEventsForYear).toHaveBeenCalledWith(2022, "token"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled());
     expect(services.downloadEventsPdf).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -73,8 +69,8 @@ describe("EventsListScreen", () => {
 
   it("explains why the PDF could not be generated", async () => {
     const services = makeServices({
-      getCurrentPosition: vi.fn(async () => {
-        throw new Error("Allow location access to calculate miles traveled.");
+      fetchEventsForYear: vi.fn(async () => {
+        throw new Error("Could not load events (status 502)");
       }),
     });
     render(<EventsListScreen accessToken="token" services={services} />);
@@ -86,66 +82,113 @@ describe("EventsListScreen", () => {
     expect(services.downloadEventsPdf).not.toHaveBeenCalled();
   });
 
-  it("lists the current year's events with date, name and miles", async () => {
+  function renderCurrentYear(events: Omit<EventWithMiles, "date">[], unit?: "miles" | "kilometers") {
     const year = new Date().getFullYear();
-    eventsByYear[year] = [
-      { id: "x", name: "Client visit - Acme", date: `${year}-03-15`, location: "Acme HQ", miles: 42 },
-    ];
-    render(<EventsListScreen accessToken="token" services={makeServices()} />);
+    const services = makeServices({
+      fetchEventsForYear: vi.fn(async () => ({
+        baseAddress: "Home" as string | null,
+        events: events.map((event, i) => ({ ...event, date: `${year}-03-${String(i + 10)}` })),
+      })),
+    });
+    render(<EventsListScreen accessToken="token" services={services} unit={unit} />);
+    return year;
+  }
+
+  const rowOf = (name: string) => screen.getByText(name).closest("tr")!;
+
+  it("lists the current year's events with date, name and round-trip distance next to each", async () => {
+    const year = renderCurrentYear([
+      { id: "x", name: "Client visit - Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 },
+      { id: "y", name: "Office", location: "Office", distanceMeters: 3_218.688, miles: 2 },
+    ]);
 
     expect(await screen.findByText("Client visit - Acme")).toBeInTheDocument();
-    expect(screen.getByText(`15 March ${year}`)).toBeInTheDocument();
-    expect(screen.getAllByText("42.0 mi")).toHaveLength(2); // the event and the total
-    delete eventsByYear[year];
+    expect(screen.getByText(`10 March ${year}`)).toBeInTheDocument();
+    expect(rowOf("Client visit - Acme")).toHaveTextContent("10.0 mi");
+    expect(rowOf("Office")).toHaveTextContent("2.0 mi");
   });
 
-  describe("distance unit", () => {
-    const year = new Date().getFullYear();
-    beforeEach(() => {
-      eventsByYear[year] = [
-        { id: "x", name: "Client visit", date: `${year}-03-15`, location: "Acme HQ", miles: 10 },
-        { id: "y", name: "Workshop", date: `${year}-04-01`, location: "Hall", miles: 12.345 },
-        { id: "z", name: "Call", date: `${year}-05-01`, location: null, miles: null },
-      ];
-    });
-    afterEach(() => {
-      delete eventsByYear[year];
-    });
+  it("shows the distance in miles when the unit setting is miles", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 }], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme")).toHaveTextContent("10.0 mi");
+  });
 
-    const distanceCells = async () => {
-      const table = await screen.findByRole("table");
-      return within(table)
-        .getAllByRole("row")
-        .slice(1)
-        .map((row) => within(row).getAllByRole("cell").at(-1)!.textContent);
-    };
+  it("shows the distance in kilometers when the unit setting is kilometers", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 21_000, miles: 13.05 }], "kilometers");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme")).toHaveTextContent("21.0 km");
+  });
 
-    it("shows each event's mileage converted to km (1 mi = 1.609344 km) with the 'km' label, and the total", async () => {
-      renderWithUnit(<EventsListScreen accessToken="token" services={makeServices()} />, "km");
+  it("shows no distance for events without a location or whose location cannot be found, and the others normally", async () => {
+    renderCurrentYear([
+      { id: "n", name: "No location", location: null, distanceMeters: null, miles: null },
+      { id: "u", name: "Atlantis trip", location: "Atlantis", distanceMeters: null, miles: null },
+      { id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 21_000, miles: 13.05 },
+    ], "kilometers");
 
-      await screen.findByText("16.1 km");
-      // 10 mi = 16.09 km, 12.345 mi = 19.87 km; the total converts the unrounded sum: 22.345 mi = 35.96 km.
-      expect(await distanceCells()).toEqual(["16.1 km", "19.9 km", "N/A", "36.0 km"]);
-      expect(within(screen.getByRole("table")).getByRole("rowheader", { name: "Total" })).toBeInTheDocument();
-    });
+    await screen.findByText("Acme");
+    expect(rowOf("No location").lastElementChild).toHaveTextContent(/^$/);
+    expect(rowOf("Atlantis trip").lastElementChild).toHaveTextContent(/^$/);
+    expect(rowOf("Acme")).toHaveTextContent("21.0 km");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 
-    it("shows each event's mileage in miles with one decimal and the 'mi' label, and the total", async () => {
-      renderWithUnit(<EventsListScreen accessToken="token" services={makeServices()} />, "mi");
+  it("shows an event of 10 mi as 16.1 km when the unit is kilometers", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 }], "kilometers");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme").lastElementChild).toHaveTextContent(/^16\.1 km$/);
+  });
 
-      await screen.findByText("12.3 mi");
-      expect(await distanceCells()).toEqual(["10.0 mi", "12.3 mi", "N/A", "22.3 mi"]);
-    });
+  it("shows distances with exactly one decimal place", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 12.345 * 1609.344, miles: 12.345 }], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme").lastElementChild).toHaveTextContent(/^12\.3 mi$/);
+  });
 
-    it("downloads the PDF in the chosen unit", async () => {
-      const services = makeServices();
-      renderWithUnit(<EventsListScreen accessToken="token" services={services} />, "km");
-      await screen.findByText("16.1 km");
+  it("totals the events' distances in kilometers from the unrounded distances", async () => {
+    // 1.04 mi each rounds to 1.7 km, but the total of 3.12 mi is 5.0 km, not 5.1 km.
+    renderCurrentYear(
+      ["a", "b", "c"].map((id) => ({ id, name: `Event ${id}`, location: "X", distanceMeters: 1.04 * 1609.344, miles: 1.04 })),
+      "kilometers",
+    );
+    await screen.findByText("Event a");
+    expect(rowOf("Event a").lastElementChild).toHaveTextContent("1.7 km");
+    expect(rowOf("Total").lastElementChild).toHaveTextContent(/^5\.0 km$/);
+  });
 
-      await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+  it("totals the events' distances in miles, skipping unknown ones", async () => {
+    renderCurrentYear([
+      { id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 },
+      { id: "n", name: "No location", location: null, distanceMeters: null, miles: null },
+      { id: "y", name: "Office", location: "Office", distanceMeters: 3_218.688, miles: 2 },
+    ], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Total").lastElementChild).toHaveTextContent(/^12\.0 mi$/);
+  });
 
-      await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
-      const report = vi.mocked(services.downloadEventsPdf).mock.calls[0][0];
-      expect(report.rows.map((row) => row[2])).toEqual(["16.1 km", "19.9 km", "N/A"]);
-    });
+  it("downloads the PDF in the chosen unit", async () => {
+    const services = makeServices();
+    render(<EventsListScreen accessToken="token" services={services} unit="kilometers" />);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Year" }), "2024");
+    await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+
+    await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
+    expect(services.downloadEventsPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ rows: expect.arrayContaining([["15 March 2024", "Client visit - Acme", "67.6 km"]]) }),
+    );
+  });
+
+  it("says which base address the miles are measured from", async () => {
+    render(<EventsListScreen accessToken="token" services={makeServices()} />);
+    expect(await screen.findByText("Miles from Home.")).toBeInTheDocument();
+  });
+
+  it("asks for a base address when none is saved", async () => {
+    const services = makeServices({ fetchEventsForYear: vi.fn(async () => ({ baseAddress: null, events: [] })) });
+    render(<EventsListScreen accessToken="token" services={services} />);
+
+    expect(await screen.findByRole("link", { name: "Set your base address" })).toHaveAttribute("href", "/settings");
   });
 });

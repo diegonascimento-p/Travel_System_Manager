@@ -1,34 +1,35 @@
 import { useEffect, useState } from "react";
 import { downloadYearlyEventsPdf, type EventsServices } from "../controllers/yearlyEventsPdfController";
-import type { EventWithMiles } from "../models/event";
+import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/distanceUnit";
+import type { YearEvents } from "../models/event";
+import { Link } from "../router/navigation";
 import { defaultEventsServices } from "../services";
-import { useDistanceUnit } from "../settings/DistanceUnitContext";
-import { formatDistance, totalMiles } from "../utils/distance";
+import { formatMeters, totalDistance } from "../utils/distance";
 import { formatEventDate } from "../utils/format";
 import { DownloadPdfControl } from "./DownloadPdfControl";
 
 interface Props {
   accessToken: string;
   services?: EventsServices;
+  /** The user's unit setting for showing distances. */
+  unit?: DistanceUnit;
 }
 
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; events: EventWithMiles[] };
+  | ({ status: "ready" } & YearEvents);
 
-/** Lists this year's events with the distance traveled in the account's unit, and offers a yearly PDF download. */
-export function EventsListScreen({ accessToken, services = defaultEventsServices }: Props) {
+/** Lists this year's events with the round-trip distance in the user's unit, and offers a yearly PDF download. */
+export function EventsListScreen({ accessToken, services = defaultEventsServices, unit = DEFAULT_DISTANCE_UNIT }: Props) {
   const year = new Date().getFullYear();
-  const { unit } = useDistanceUnit();
   const [state, setState] = useState<ListState>({ status: "loading" });
 
   useEffect(() => {
     let active = true;
     services
-      .getCurrentPosition()
-      .then((origin) => services.fetchEventsForYear(year, accessToken, origin))
-      .then((events) => active && setState({ status: "ready", events }))
+      .fetchEventsForYear(year, accessToken)
+      .then((result) => active && setState({ status: "ready", ...result }))
       .catch((e: unknown) =>
         active && setState({ status: "error", message: e instanceof Error ? e.message : "Could not load events." }),
       );
@@ -48,6 +49,12 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
       <h3>{year}</h3>
       {state.status === "loading" && <p>Loading events…</p>}
       {state.status === "error" && <p role="alert">{state.message}</p>}
+      {state.status === "ready" && state.baseAddress === null && (
+        <p role="note">
+          Miles are measured from your base address. <Link to="/settings">Set your base address</Link> to calculate them.
+        </p>
+      )}
+      {state.status === "ready" && state.baseAddress !== null && <p>Miles from {state.baseAddress}.</p>}
       {state.status === "ready" && state.events.length === 0 && <p>No events this year.</p>}
       {state.status === "ready" && state.events.length > 0 && (
         <table>
@@ -55,7 +62,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
             <tr>
               <th>Date</th>
               <th>Event</th>
-              <th>Distance traveled</th>
+              <th>Round trip</th>
             </tr>
           </thead>
           <tbody>
@@ -63,7 +70,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
               <tr key={event.id}>
                 <td>{formatEventDate(event.date)}</td>
                 <td>{event.name}</td>
-                <td>{formatDistance(event.miles, unit)}</td>
+                <td>{formatMeters(event.distanceMeters, unit)}</td>
               </tr>
             ))}
           </tbody>
@@ -72,7 +79,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
               <th scope="row" colSpan={2}>
                 Total
               </th>
-              <td>{formatDistance(totalMiles(state.events.map((event) => event.miles)), unit)}</td>
+              <td>{formatMeters(totalDistance(state.events.map((event) => event.distanceMeters)), unit)}</td>
             </tr>
           </tfoot>
         </table>

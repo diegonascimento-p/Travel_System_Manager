@@ -1,19 +1,18 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/settings";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/distanceUnit";
+import { useGoogleAccessToken } from "../services/googleSession";
 import { defaultSettingsServices, type SettingsServices } from "../services/settingsApi";
 
 interface DistanceUnitState {
   /** Unit every distance is shown in. */
   unit: DistanceUnit;
-  /** Saves the unit to the user's account, then applies it everywhere. */
-  saveUnit(unit: DistanceUnit): Promise<void>;
-  services: SettingsServices;
+  /** Applies a unit just saved to the user's account to every screen. */
+  applyUnit(unit: DistanceUnit): void;
 }
 
 const DistanceUnitContext = createContext<DistanceUnitState>({
   unit: DEFAULT_DISTANCE_UNIT,
-  saveUnit: async () => {},
-  services: defaultSettingsServices,
+  applyUnit: () => {},
 });
 
 interface Props {
@@ -21,35 +20,33 @@ interface Props {
   children: ReactNode;
 }
 
-/** Loads the account's distance unit once and shares it with every screen. */
+/**
+ * Loads the signed-in user's distance unit from their profile and shares it with every screen.
+ * Signed out, or until the profile loads, distances are shown in the default unit.
+ */
 export function DistanceUnitProvider({ services = defaultSettingsServices, children }: Props) {
+  const accessToken = useGoogleAccessToken();
   const [unit, setUnit] = useState<DistanceUnit>(DEFAULT_DISTANCE_UNIT);
 
   useEffect(() => {
+    setUnit(DEFAULT_DISTANCE_UNIT);
+    if (!accessToken) return;
     let active = true;
-    services.fetchSettings().then(
+    services.fetchSettings(accessToken).then(
       (settings) => active && setUnit(settings.distanceUnit),
-      // Without saved settings distances stay in the default unit; screens report their own load errors.
+      // Without the profile distances stay in the default unit; screens report their own load errors.
       () => {},
     );
     return () => {
       active = false;
     };
-  }, [services]);
+  }, [services, accessToken]);
 
-  const saveUnit = useCallback(
-    async (next: DistanceUnit) => {
-      const saved = await services.saveSettings({ distanceUnit: next });
-      setUnit(saved.distanceUnit);
-    },
-    [services],
-  );
-
-  const value = useMemo(() => ({ unit, saveUnit, services }), [unit, saveUnit, services]);
+  const value = useMemo(() => ({ unit, applyUnit: setUnit }), [unit]);
   return <DistanceUnitContext.Provider value={value}>{children}</DistanceUnitContext.Provider>;
 }
 
-/** The account's distance unit and the action that saves a new one. */
+/** The account's distance unit and the action that applies a newly saved one. */
 export function useDistanceUnit(): DistanceUnitState {
   return useContext(DistanceUnitContext);
 }

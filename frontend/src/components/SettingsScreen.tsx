@@ -1,55 +1,120 @@
 import { type FormEvent, useState } from "react";
 import { useAsync } from "../hooks/useAsync";
-import type { DistanceUnit, UserSettings } from "../models/settings";
+import type { DistanceUnit } from "../models/distanceUnit";
+import { MAX_BASE_ADDRESS_LENGTH, type UserSettings } from "../models/settings";
+import { signOutOfGoogle } from "../services/googleSession";
+import { defaultSettingsServices, SettingsApiError, type SettingsServices } from "../services/settingsApi";
 import { useDistanceUnit } from "../settings/DistanceUnitContext";
 import { AppShell } from "./AppShell";
+import { GoogleSignInGate } from "./GoogleSignInGate";
 import { Card } from "./ui/Card";
 import { ErrorState, Loading } from "./ui/States";
 
+interface Props {
+  services?: SettingsServices;
+}
+
 const UNIT_OPTIONS: { value: DistanceUnit; label: string }[] = [
-  { value: "mi", label: "Miles" },
-  { value: "km", label: "Kilometers" },
+  { value: "miles", label: "Miles" },
+  { value: "kilometers", label: "Kilometers" },
 ];
 
-/** The user's account settings: the unit every distance is shown in. */
-export function SettingsScreen() {
-  const { services } = useDistanceUnit();
-  const settings = useAsync(() => services.fetchSettings(), [services]);
-
+/**
+ * The user's settings, saved on their profile: the base address event mileage is measured from
+ * and the unit every distance is shown in.
+ */
+export function SettingsScreen({ services = defaultSettingsServices }: Props) {
   return (
-    <AppShell active="settings" title="Settings" description="Preferences saved to your account.">
-      {settings.status === "loading" && <Loading label="Loading your settings…" />}
-      {settings.status === "error" && (
-        <ErrorState title="Could not load your settings" message={settings.error.message} onRetry={settings.reload} />
-      )}
-      {settings.status === "ready" && <SettingsForm saved={settings.data} />}
+    <AppShell active="settings" title="Settings" description="Your profile settings.">
+      <GoogleSignInGate>{(accessToken) => <SettingsLoader accessToken={accessToken} services={services} />}</GoogleSignInGate>
     </AppShell>
   );
 }
 
-function SettingsForm({ saved }: { saved: UserSettings }) {
-  const { saveUnit } = useDistanceUnit();
-  const [unit, setUnit] = useState<DistanceUnit>(saved.distanceUnit);
-  const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+function SettingsLoader({ accessToken, services }: { accessToken: string; services: SettingsServices }) {
+  const { applyUnit } = useDistanceUnit();
+  const settings = useAsync(() => services.fetchSettings(accessToken), [services, accessToken]);
+  if (settings.status === "loading") return <Loading label="Loading your settings…" />;
+  if (settings.status === "error") {
+    return <ErrorState title="Could not load your settings" message={settings.error.message} onRetry={settings.reload} />;
+  }
+  return (
+    <SettingsForm
+      initial={settings.data}
+      onSave={async (values) => {
+        const saved = await services.saveSettings(accessToken, values);
+        applyUnit(saved.distanceUnit);
+        return saved;
+      }}
+    />
+  );
+}
+
+interface FormProps {
+  initial: UserSettings;
+  /** Saves the settings and returns the values stored on the profile. */
+  onSave(settings: UserSettings): Promise<UserSettings>;
+}
+
+function SettingsForm({ initial, onSave }: FormProps) {
+  const [value, setValue] = useState(initial.baseAddress ?? "");
+  const [unit, setUnit] = useState<DistanceUnit>(initial.distanceUnit);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
-    setResult(null);
+    setError(null);
+    setStatus("saving");
     try {
-      await saveUnit(unit);
-      setResult({ ok: true, message: "Settings saved." });
-    } catch (error) {
-      setResult({ ok: false, message: error instanceof Error ? error.message : "Could not save the settings." });
-    } finally {
-      setSaving(false);
+      const saved = await onSave({ baseAddress: value.trim(), distanceUnit: unit });
+      setValue(saved.baseAddress ?? "");
+      setUnit(saved.distanceUnit);
+      setStatus("saved");
+    } catch (e) {
+      setStatus("idle");
+      setError(e instanceof SettingsApiError ? (e.fieldError ?? e.message) : "Could not save your settings.");
     }
   }
 
   return (
-    <Card title="Display" description="How distances are shown across the app." className="form-card">
-      <form className="settings-form" onSubmit={handleSubmit}>
+    <Card
+      title="Mileage"
+      description="The distance for each calendar event is the Google Maps driving distance from this address to the event's location."
+      className="form-card"
+      action={
+        <button type="button" className="button button-outline button-sm" onClick={signOutOfGoogle}>
+          Sign out
+        </button>
+      }
+    >
+      <form className="trip-form" noValidate onSubmit={handleSubmit}>
+        <div className="field">
+          <label htmlFor="settings-base-address" className="label">
+            Base address
+          </label>
+          <input
+            id="settings-base-address"
+            name="baseAddress"
+            type="text"
+            className="input"
+            placeholder="e.g. 1 Main St, Springfield"
+            autoComplete="street-address"
+            maxLength={MAX_BASE_ADDRESS_LENGTH}
+            value={value}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "settings-base-address-error" : undefined}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setStatus("idle");
+            }}
+          />
+          {error && (
+            <p id="settings-base-address-error" className="field-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
         <div className="field">
           <label htmlFor="settings-distance-unit" className="label">
             Distance unit
@@ -59,7 +124,10 @@ function SettingsForm({ saved }: { saved: UserSettings }) {
             name="distanceUnit"
             className="input"
             value={unit}
-            onChange={(e) => setUnit(e.target.value as DistanceUnit)}
+            onChange={(e) => {
+              setUnit(e.target.value as DistanceUnit);
+              setStatus("idle");
+            }}
           >
             {UNIT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -67,15 +135,12 @@ function SettingsForm({ saved }: { saved: UserSettings }) {
               </option>
             ))}
           </select>
+          <p className="muted">Every distance in the app is shown in this unit.</p>
         </div>
-        {result && (
-          <p role={result.ok ? "status" : "alert"} className={result.ok ? "muted" : "field-error"}>
-            {result.message}
-          </p>
-        )}
         <div className="form-actions">
-          <button type="submit" className="button button-primary" disabled={saving} aria-busy={saving}>
-            {saving ? "Saving…" : "Save settings"}
+          {status === "saved" && <p role="status">Settings saved.</p>}
+          <button type="submit" className="button button-primary" disabled={status === "saving"} aria-busy={status === "saving"}>
+            {status === "saving" ? "Saving…" : "Save"}
           </button>
         </div>
       </form>

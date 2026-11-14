@@ -6,6 +6,7 @@ const event = (overrides: Partial<EventWithMiles>): EventWithMiles => ({
   name: "Event",
   date: "2024-01-01",
   location: "Somewhere",
+  distanceMeters: 1609.344,
   miles: 1,
   ...overrides,
 });
@@ -27,7 +28,7 @@ describe("buildEventsReport", () => {
   });
 
   it("shows the distances in kilometers when asked", () => {
-    const report = buildEventsReport(2024, [event({ miles: 10 }), event({ id: "b", miles: null })], "km");
+    const report = buildEventsReport(2024, [event({ miles: 10 }), event({ id: "b", miles: null })], "kilometers");
     expect(report.rows.map((row) => row[2])).toEqual(["16.1 km", "N/A"]);
   });
 

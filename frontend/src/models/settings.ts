@@ -1,10 +1,11 @@
-/** Unit distances are shown in. Distances are always stored and calculated in miles. */
-export type DistanceUnit = "mi" | "km";
+import type { DistanceUnit } from "./distanceUnit";
 
-/** The user's account preferences, as saved by the settings API. */
+/** Settings saved on the signed-in user's profile. */
 export interface UserSettings {
+  /** Address mileage for calendar events is measured from; null until saved. */
+  baseAddress: string | null;
+  /** Unit every distance in the app is shown in. */
   distanceUnit: DistanceUnit;
 }
 
-/** Unit used until the user chooses one. */
-export const DEFAULT_DISTANCE_UNIT: DistanceUnit = "mi";
+export const MAX_BASE_ADDRESS_LENGTH = 300;

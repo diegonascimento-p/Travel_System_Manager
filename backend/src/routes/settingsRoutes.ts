@@ -16,5 +16,5 @@ function settingsErrorHandler(error: unknown, _req: Request, res: Response, _nex
     return;
   }
   console.error(error);
-  res.status(500).json({ error: "Could not process the settings request" });
+  res.status(502).json({ error: "Could not process the settings request" });
 }

@@ -3,7 +3,7 @@ import { buildEventsReport } from "./eventsReport";
 import { renderEventsPdf } from "./renderEventsPdf";
 
 const report = buildEventsReport(2024, [
-  { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 42 },
+  { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", distanceMeters: 67_592, miles: 42 },
 ]);
 
 describe("renderEventsPdf", () => {

@@ -1,5 +1,5 @@
 import type { EventWithMiles } from "../models/event";
-import type { DistanceUnit } from "../models/settings";
+import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/distanceUnit";
 import { formatDistance } from "../utils/distance";
 import { formatEventDate } from "../utils/format";
 
@@ -14,7 +14,7 @@ export interface EventsReport {
  * Builds the content of the yearly distance-traveled report: one row per event, oldest first,
  * with distances in the unit.
  */
-export function buildEventsReport(year: number, events: EventWithMiles[], unit: DistanceUnit = "mi"): EventsReport {
+export function buildEventsReport(year: number, events: EventWithMiles[], unit: DistanceUnit = DEFAULT_DISTANCE_UNIT): EventsReport {
   const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date));
   return {
     title: `Distance traveled in ${year}`,

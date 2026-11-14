@@ -24,7 +24,7 @@ describe("DashboardScreen", () => {
 
   it("shows the month's total in kilometers with the 'km' label when Kilometers is selected", async () => {
     const services = fakeTripsServices([trip(1, "2026-11-01", { distance: 10 }), trip(2, "2026-11-02", { distance: 2.5 })]);
-    renderWithUnit(<DashboardScreen services={services} today={today} />, "km");
+    renderWithUnit(<DashboardScreen services={services} today={today} />, "kilometers");
 
     const total = await screen.findByRole("region", { name: "Distance this month" });
     expect(await within(total).findByText("20.1 km")).toBeInTheDocument();

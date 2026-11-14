@@ -1,4 +1,4 @@
-import { fetchSettings, saveSettings } from "./settingsApi";
+import { fetchSettings, saveSettings, SettingsApiError } from "./settingsApi";
 
 function stubFetch(status: number, body: unknown) {
   const fetchMock = vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -9,28 +9,39 @@ function stubFetch(status: number, body: unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("settings API service", () => {
-  it("loads the account's settings", async () => {
-    const fetchMock = stubFetch(200, { distanceUnit: "km" });
-    await expect(fetchSettings()).resolves.toEqual({ distanceUnit: "km" });
-    expect(fetchMock).toHaveBeenCalledWith("/api/settings", expect.anything());
+  it("loads the settings with the Google access token", async () => {
+    const fetchMock = stubFetch(200, { baseAddress: "1 Main St", distanceUnit: "kilometers" });
+
+    await expect(fetchSettings("token")).resolves.toEqual({ baseAddress: "1 Main St", distanceUnit: "kilometers" });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
+      method: "GET",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer token" },
+    });
   });
 
-  it("saves the settings with PUT", async () => {
-    const fetchMock = stubFetch(200, { distanceUnit: "mi" });
-    await expect(saveSettings({ distanceUnit: "mi" })).resolves.toEqual({ distanceUnit: "mi" });
+  it("saves the settings with a JSON PUT", async () => {
+    const fetchMock = stubFetch(200, { baseAddress: "2 Oak Ave", distanceUnit: "miles" });
+
+    await expect(saveSettings("token", { baseAddress: "2 Oak Ave", distanceUnit: "miles" })).resolves.toEqual({ baseAddress: "2 Oak Ave", distanceUnit: "miles" });
+
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/settings",
-      expect.objectContaining({ method: "PUT", body: JSON.stringify({ distanceUnit: "mi" }) }),
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ baseAddress: "2 Oak Ave", distanceUnit: "miles" }) }),
     );
   });
 
-  it("reports the server's error message", async () => {
-    stubFetch(400, { error: "The settings are invalid" });
-    await expect(saveSettings({ distanceUnit: "mi" })).rejects.toThrow("The settings are invalid");
+  it("reports why the base address was rejected", async () => {
+    stubFetch(400, { error: "The settings are invalid", fields: { baseAddress: "Google Maps could not find this address." } });
+
+    const error = await saveSettings("token", { baseAddress: "Atlantis", distanceUnit: "miles" }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(SettingsApiError);
+    expect(error.fieldError).toBe("Google Maps could not find this address.");
   });
 
-  it("reports when the server cannot be reached", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("offline"))));
-    await expect(fetchSettings()).rejects.toThrow("Could not reach the server");
+  it("asks the user to sign in again when the token expired", async () => {
+    stubFetch(401, { error: "Google Calendar access was denied" });
+    await expect(fetchSettings("old")).rejects.toThrow("Your Google sign-in expired. Sign in again.");
   });
 });
