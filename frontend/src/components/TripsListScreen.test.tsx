@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderWithUnit } from "../testing/fakeSettingsServices";
 import { fakeTripsServices, trip } from "../testing/fakeTripsServices";
 import { TripsListScreen } from "./TripsListScreen";
 
@@ -18,7 +19,7 @@ describe("TripsListScreen", () => {
       "10 November 2026",
       "Home",
       "Depot",
-      "7 mi",
+      "7.0 mi",
       "Pickup",
     ]);
     expect(within(rows[1]).getAllByRole("cell").map((c) => c.textContent).slice(0, 5)).toEqual([
@@ -33,6 +34,14 @@ describe("TripsListScreen", () => {
       "/trips/1/edit",
     );
     expect(table).toHaveClass("data-table");
+  });
+
+  it("shows each trip's distance in kilometers when Kilometers is selected", async () => {
+    const services = fakeTripsServices([trip(1, "2026-11-03", { distance: 10 })]);
+    renderWithUnit(<TripsListScreen page={1} services={services} />, "kilometers");
+
+    const table = await screen.findByRole("table", { name: "All trips" });
+    expect(await within(table).findByText("16.1 km")).toBeInTheDocument();
   });
 
   it("pages through trips 20 at a time", async () => {

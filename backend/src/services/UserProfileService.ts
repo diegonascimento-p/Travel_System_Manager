@@ -1,4 +1,4 @@
-import type { UserProfile } from "../models/UserProfile.js";
+import { DEFAULT_DISTANCE_UNIT, DISTANCE_UNITS, type DistanceUnit, type UserProfile } from "../models/UserProfile.js";
 import type { UserIdentityRepository } from "../repositories/UserIdentityRepository.js";
 import type { UserProfileRepository } from "../repositories/UserProfileRepository.js";
 import type { Geocoder } from "./Geocoder.js";
@@ -12,7 +12,7 @@ export class UserProfileValidationError extends Error {
   }
 }
 
-const EMPTY_PROFILE: UserProfile = { baseAddress: null };
+const EMPTY_PROFILE: UserProfile = { baseAddress: null, distanceUnit: DEFAULT_DISTANCE_UNIT };
 
 /** Reads and saves the signed-in user's profile settings. */
 export class UserProfileService {
@@ -32,14 +32,18 @@ export class UserProfileService {
     return { userId, profile: (await this.profiles.findByUserId(userId)) ?? EMPTY_PROFILE };
   }
 
-  /** Validates and saves the settings, replacing the previous values. An empty base address clears it. */
+  /**
+   * Validates and saves the settings, replacing the previous values. An empty base address clears it;
+   * a missing distance unit keeps the saved one.
+   */
   async updateProfile(accessToken: string, input: unknown): Promise<UserProfile> {
     const baseAddress = parseBaseAddress(input);
+    const distanceUnit = parseDistanceUnit(input);
     if (baseAddress !== null && !(await this.geocoder.geocode(baseAddress))) {
       throw new UserProfileValidationError({ baseAddress: "Google Maps could not find this address." });
     }
-    const userId = await this.identities.findUserId(accessToken);
-    return this.profiles.save(userId, { baseAddress });
+    const { userId, profile } = await this.getUserProfile(accessToken);
+    return this.profiles.save(userId, { baseAddress, distanceUnit: distanceUnit ?? profile.distanceUnit });
   }
 }
 
@@ -60,4 +64,18 @@ export function parseBaseAddress(input: unknown): string | null {
     });
   }
   return trimmed === "" ? null : trimmed;
+}
+
+/** The distance unit from the request body; null when it is not given (keeping the saved unit). */
+export function parseDistanceUnit(input: unknown): DistanceUnit | null {
+  const value = (input as { distanceUnit?: unknown } | null)?.distanceUnit;
+  if (value === undefined) return null;
+  if (!isDistanceUnit(value)) {
+    throw new UserProfileValidationError({ distanceUnit: 'Distance unit must be "miles" or "kilometers".' });
+  }
+  return value;
+}
+
+export function isDistanceUnit(value: unknown): value is DistanceUnit {
+  return typeof value === "string" && (DISTANCE_UNITS as readonly string[]).includes(value);
 }

@@ -1,11 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
 import type { Trip } from "./models/trip";
+import { setGoogleAccessToken } from "./services/googleSession";
 import { localDate, localMonth } from "./utils/dates";
 
 /** Answers the app's fetch calls like the trips API, keeping trips in memory. */
-function fakeTripsBackend(initial: Trip[] = []) {
+function fakeTripsBackend(initial: Trip[] = [], settings: Record<string, unknown> = { baseAddress: null, distanceUnit: "miles" }) {
   const trips = [...initial];
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
   const newestFirst = () => [...trips].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
@@ -13,6 +14,14 @@ function fakeTripsBackend(initial: Trip[] = []) {
   return vi.fn(async (input: string, init: RequestInit = {}) => {
     const url = new URL(input, "http://localhost");
     const method = init.method ?? "GET";
+    if (url.pathname === "/api/settings") {
+      if (method === "PUT") Object.assign(settings, JSON.parse(String(init.body)));
+      return json(200, { ...settings });
+    }
+    if (url.pathname === "/api/events") {
+      const event = { id: "e1", name: "Client visit", date: localDate(), location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 };
+      return json(200, { baseAddress: settings.baseAddress, events: [event] });
+    }
     const id = Number(url.pathname.split("/")[3]);
     if (url.pathname === "/api/trips/summary") {
       const month = url.searchParams.get("month")!;
@@ -35,6 +44,8 @@ function fakeTripsBackend(initial: Trip[] = []) {
     return json(200, trips[index]);
   });
 }
+
+const navLink = (name: string) => within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name });
 
 function openApp(path: string) {
   window.history.replaceState(null, "", path);
@@ -63,7 +74,7 @@ describe("App", () => {
     const nav = screen.getByRole("navigation", { name: "Main" });
     await userEvent.click(within(nav).getByRole("link", { name: "Dashboard" }));
 
-    const miles = await screen.findByRole("region", { name: "Miles this month" });
+    const miles = await screen.findByRole("region", { name: "Distance this month" });
     expect(within(miles).getByText("42.5 mi")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Recent trips" })).getByText("Client visit")).toBeInTheDocument();
   });
@@ -100,8 +111,51 @@ describe("App", () => {
     vi.stubGlobal("fetch", backend);
     openApp("/");
 
-    await screen.findByRole("region", { name: "Miles this month" });
+    await screen.findByRole("region", { name: "Distance this month" });
     expect(backend).toHaveBeenCalledWith(`/api/trips/summary?month=${localMonth()}`, expect.anything());
+  });
+
+  it("saves the distance unit to the account and shows every distance in it, also after signing in again", async () => {
+    const settings = { baseAddress: "Home" as string | null, distanceUnit: "miles" };
+    const backend = fakeTripsBackend(
+      [{ id: 1, date: localDate(), origin: "Office", destination: "Acme HQ", distance: 10, purpose: "Visit" }],
+      settings,
+    );
+    vi.stubGlobal("fetch", backend);
+    act(() => setGoogleAccessToken("first-login"));
+    openApp("/trips");
+    expect(await within(await screen.findByRole("table", { name: "All trips" })).findByText("10.0 mi")).toBeInTheDocument();
+
+    await userEvent.click(navLink("Settings"));
+    const unit = await screen.findByRole("combobox", { name: "Distance unit" });
+    expect(unit).toHaveDisplayValue("Miles");
+    await userEvent.selectOptions(unit, "Kilometers");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Settings saved.");
+    expect(settings).toEqual({ baseAddress: "Home", distanceUnit: "kilometers" });
+
+    await userEvent.click(navLink("Dashboard"));
+    const total = await screen.findByRole("region", { name: "Distance this month" });
+    expect(await within(total).findByText("16.1 km")).toBeInTheDocument();
+
+    await userEvent.click(navLink("Calendar events"));
+    const event = (await screen.findByText("Client visit")).closest("tr")!;
+    expect(event.lastElementChild).toHaveTextContent(/^16\.1 km$/);
+    expect(screen.getByText("Total").closest("tr")!.lastElementChild).toHaveTextContent(/^16\.1 km$/);
+
+    // Log out and back in: the unit is loaded from the account again.
+    act(() => setGoogleAccessToken(null));
+    act(() => setGoogleAccessToken("second-login"));
+    expect((await screen.findByText("Client visit")).closest("tr")!.lastElementChild).toHaveTextContent(/^16\.1 km$/);
+    await userEvent.click(navLink("Settings"));
+    expect(await screen.findByRole("combobox", { name: "Distance unit" })).toHaveDisplayValue("Kilometers");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Distance unit" }), "Miles");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByRole("status");
+    await userEvent.click(navLink("Calendar events"));
+    expect((await screen.findByText("Client visit")).closest("tr")!.lastElementChild).toHaveTextContent(/^10\.0 mi$/);
   });
 
   it("shows a not found page for unknown addresses", () => {

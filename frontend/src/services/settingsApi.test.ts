@@ -10,9 +10,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("settings API service", () => {
   it("loads the settings with the Google access token", async () => {
-    const fetchMock = stubFetch(200, { baseAddress: "1 Main St" });
+    const fetchMock = stubFetch(200, { baseAddress: "1 Main St", distanceUnit: "kilometers" });
 
-    await expect(fetchSettings("token")).resolves.toEqual({ baseAddress: "1 Main St" });
+    await expect(fetchSettings("token")).resolves.toEqual({ baseAddress: "1 Main St", distanceUnit: "kilometers" });
 
     expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
       method: "GET",
@@ -21,20 +21,20 @@ describe("settings API service", () => {
   });
 
   it("saves the settings with a JSON PUT", async () => {
-    const fetchMock = stubFetch(200, { baseAddress: "2 Oak Ave" });
+    const fetchMock = stubFetch(200, { baseAddress: "2 Oak Ave", distanceUnit: "miles" });
 
-    await expect(saveSettings("token", { baseAddress: "2 Oak Ave" })).resolves.toEqual({ baseAddress: "2 Oak Ave" });
+    await expect(saveSettings("token", { baseAddress: "2 Oak Ave", distanceUnit: "miles" })).resolves.toEqual({ baseAddress: "2 Oak Ave", distanceUnit: "miles" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/settings",
-      expect.objectContaining({ method: "PUT", body: JSON.stringify({ baseAddress: "2 Oak Ave" }) }),
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ baseAddress: "2 Oak Ave", distanceUnit: "miles" }) }),
     );
   });
 
   it("reports why the base address was rejected", async () => {
     stubFetch(400, { error: "The settings are invalid", fields: { baseAddress: "Google Maps could not find this address." } });
 
-    const error = await saveSettings("token", { baseAddress: "Atlantis" }).catch((e) => e);
+    const error = await saveSettings("token", { baseAddress: "Atlantis", distanceUnit: "miles" }).catch((e) => e);
 
     expect(error).toBeInstanceOf(SettingsApiError);
     expect(error.fieldError).toBe("Google Maps could not find this address.");

@@ -4,7 +4,8 @@ import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/distanceUnit
 import type { YearEvents } from "../models/event";
 import { Link } from "../router/navigation";
 import { defaultEventsServices } from "../services";
-import { formatEventDate, formatMeters } from "../utils/format";
+import { formatMeters, totalDistance } from "../utils/distance";
+import { formatEventDate } from "../utils/format";
 import { DownloadPdfControl } from "./DownloadPdfControl";
 
 interface Props {
@@ -42,7 +43,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
       <h2>Events</h2>
       <DownloadPdfControl
         onDownload={async (selectedYear) => {
-          await downloadYearlyEventsPdf(selectedYear, accessToken, services);
+          await downloadYearlyEventsPdf(selectedYear, accessToken, services, unit);
         }}
       />
       <h3>{year}</h3>
@@ -73,6 +74,14 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={2}>
+                Total
+              </th>
+              <td>{formatMeters(totalDistance(state.events.map((event) => event.distanceMeters)), unit)}</td>
+            </tr>
+          </tfoot>
         </table>
       )}
     </div>

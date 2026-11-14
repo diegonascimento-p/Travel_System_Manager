@@ -15,7 +15,7 @@ function setup() {
 
 describe("UserProfileService", () => {
   it("returns an empty base address before the user saves one", async () => {
-    await expect(setup().service.getProfile("alice")).resolves.toEqual({ baseAddress: null });
+    await expect(setup().service.getProfile("alice")).resolves.toEqual({ baseAddress: null, distanceUnit: "miles" });
   });
 
   it("saves the trimmed base address on the user's profile", async () => {
@@ -23,10 +23,11 @@ describe("UserProfileService", () => {
 
     await expect(service.updateProfile("alice", { baseAddress: "  1 Main St, Springfield " })).resolves.toEqual({
       baseAddress: "1 Main St, Springfield",
+      distanceUnit: "miles",
     });
 
-    expect(profiles.profiles.get("alice@example.com")).toEqual({ baseAddress: "1 Main St, Springfield" });
-    await expect(service.getProfile("bob")).resolves.toEqual({ baseAddress: null });
+    expect(profiles.profiles.get("alice@example.com")).toEqual({ baseAddress: "1 Main St, Springfield", distanceUnit: "miles" });
+    await expect(service.getProfile("bob")).resolves.toEqual({ baseAddress: null, distanceUnit: "miles" });
   });
 
   it("replaces the previous base address", async () => {
@@ -35,14 +36,14 @@ describe("UserProfileService", () => {
 
     await service.updateProfile("alice", { baseAddress: "2 Oak Ave, Springfield" });
 
-    await expect(service.getProfile("alice")).resolves.toEqual({ baseAddress: "2 Oak Ave, Springfield" });
+    await expect(service.getProfile("alice")).resolves.toEqual({ baseAddress: "2 Oak Ave, Springfield", distanceUnit: "miles" });
   });
 
   it("clears the base address when it is saved empty", async () => {
     const { service } = setup();
     await service.updateProfile("alice", { baseAddress: "1 Main St, Springfield" });
 
-    await expect(service.updateProfile("alice", { baseAddress: "  " })).resolves.toEqual({ baseAddress: null });
+    await expect(service.updateProfile("alice", { baseAddress: "  " })).resolves.toEqual({ baseAddress: null, distanceUnit: "miles" });
   });
 
   it.each([
@@ -58,6 +59,32 @@ describe("UserProfileService", () => {
 
     expect(error).toBeInstanceOf(UserProfileValidationError);
     expect(error.fields).toEqual({ baseAddress: message });
+    expect(profiles.profiles.size).toBe(0);
+  });
+
+  it("saves the chosen distance unit and keeps it when a later save omits it", async () => {
+    const { service } = setup();
+
+    await expect(service.updateProfile("alice", { baseAddress: "", distanceUnit: "kilometers" })).resolves.toEqual({
+      baseAddress: null,
+      distanceUnit: "kilometers",
+    });
+    await service.updateProfile("alice", { baseAddress: "1 Main St, Springfield" });
+
+    await expect(service.getProfile("alice")).resolves.toEqual({
+      baseAddress: "1 Main St, Springfield",
+      distanceUnit: "kilometers",
+    });
+    await expect(service.getProfile("bob")).resolves.toEqual({ baseAddress: null, distanceUnit: "miles" });
+  });
+
+  it.each(["km", "yards", 1, null])("rejects the distance unit %o without saving", async (distanceUnit) => {
+    const { service, profiles } = setup();
+
+    const error = await service.updateProfile("alice", { baseAddress: "", distanceUnit }).catch((e) => e);
+
+    expect(error).toBeInstanceOf(UserProfileValidationError);
+    expect(error.fields).toEqual({ distanceUnit: 'Distance unit must be "miles" or "kilometers".' });
     expect(profiles.profiles.size).toBe(0);
   });
 });

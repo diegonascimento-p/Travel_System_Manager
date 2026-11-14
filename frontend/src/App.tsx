@@ -7,6 +7,7 @@ import { TripsListScreen } from "./components/TripsListScreen";
 import { Loading } from "./components/ui/States";
 import { Link, useLocation } from "./router/navigation";
 import { parseRoute } from "./router/routes";
+import { DistanceUnitProvider } from "./settings/DistanceUnitContext";
 
 // The calendar screen pulls in Google sign-in and PDF code, so it is only downloaded when opened.
 const CalendarEventsScreen = lazy(() =>
@@ -14,6 +15,14 @@ const CalendarEventsScreen = lazy(() =>
 );
 
 export function App() {
+  return (
+    <DistanceUnitProvider>
+      <Screen />
+    </DistanceUnitProvider>
+  );
+}
+
+function Screen() {
   const location = useLocation();
   const [pathname, search = ""] = location.split(/(?=\?)/);
   const route = parseRoute(pathname, search);

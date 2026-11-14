@@ -1,8 +1,9 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UserSettings } from "../models/settings";
 import { setGoogleAccessToken } from "../services/googleSession";
 import { SettingsApiError, type SettingsServices } from "../services/settingsApi";
+import { DistanceUnitProvider, useDistanceUnit } from "../settings/DistanceUnitContext";
 import { SettingsScreen } from "./SettingsScreen";
 
 /** Profiles kept per Google account, like the API; every access token belongs to one account. */
@@ -11,7 +12,7 @@ function fakeSettingsServices(accounts: Record<string, string> = {}) {
   const account = (token: string) => accounts[token] ?? "me@example.com";
   return {
     profiles,
-    fetchSettings: vi.fn(async (token: string) => profiles.get(account(token)) ?? { baseAddress: null }),
+    fetchSettings: vi.fn(async (token: string): Promise<UserSettings> => profiles.get(account(token)) ?? { baseAddress: null, distanceUnit: "miles" }),
     saveSettings: vi.fn(async (token: string, settings: UserSettings) => {
       if (settings.baseAddress === "Atlantis") {
         throw new SettingsApiError("The settings are invalid", "Google Maps could not find this address.");
@@ -23,6 +24,11 @@ function fakeSettingsServices(accounts: Record<string, string> = {}) {
 }
 
 const field = () => screen.findByRole("textbox", { name: "Base address" });
+const unitField = () => screen.findByRole("combobox", { name: "Distance unit" });
+
+function UnitProbe() {
+  return <span data-testid="unit">{useDistanceUnit().unit}</span>;
+}
 
 async function saveAddress(address: string) {
   const input = await field();
@@ -53,8 +59,8 @@ describe("SettingsScreen", () => {
 
     await saveAddress("1 Main St, Springfield");
 
-    expect(await screen.findByText("Base address saved.")).toBeInTheDocument();
-    expect(services.saveSettings).toHaveBeenCalledWith("token", { baseAddress: "1 Main St, Springfield" });
+    expect(await screen.findByText("Settings saved.")).toBeInTheDocument();
+    expect(services.saveSettings).toHaveBeenCalledWith("token", { baseAddress: "1 Main St, Springfield", distanceUnit: "miles" });
     expect(await field()).toHaveValue("1 Main St, Springfield");
   });
 
@@ -63,7 +69,7 @@ describe("SettingsScreen", () => {
     const services = fakeSettingsServices({ "first-login": "me@example.com", "second-login": "me@example.com" });
     render(<SettingsScreen services={services} />);
     await saveAddress("1 Main St, Springfield");
-    await screen.findByText("Base address saved.");
+    await screen.findByText("Settings saved.");
 
     await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(screen.getByRole("heading", { name: "Connect Google Calendar" })).toBeInTheDocument();
@@ -77,15 +83,58 @@ describe("SettingsScreen", () => {
   it("replaces the saved address with an edited one", async () => {
     setGoogleAccessToken("token");
     const services = fakeSettingsServices();
-    services.profiles.set("me@example.com", { baseAddress: "1 Main St, Springfield" });
+    services.profiles.set("me@example.com", { baseAddress: "1 Main St, Springfield", distanceUnit: "miles" });
     render(<SettingsScreen services={services} />);
     expect(await field()).toHaveValue("1 Main St, Springfield");
 
     await saveAddress("2 Oak Ave, Springfield");
 
-    await screen.findByText("Base address saved.");
-    expect(services.profiles.get("me@example.com")).toEqual({ baseAddress: "2 Oak Ave, Springfield" });
+    await screen.findByText("Settings saved.");
+    expect(services.profiles.get("me@example.com")).toEqual({ baseAddress: "2 Oak Ave, Springfield", distanceUnit: "miles" });
     expect(await field()).toHaveValue("2 Oak Ave, Springfield");
+  });
+
+  it("offers a Distance unit option with Miles and Kilometers, Miles by default", async () => {
+    setGoogleAccessToken("token");
+    render(<SettingsScreen services={fakeSettingsServices()} />);
+
+    const select = await unitField();
+    expect(within(select).getAllByRole("option").map((o) => o.textContent)).toEqual(["Miles", "Kilometers"]);
+    expect(select).toHaveDisplayValue("Miles");
+  });
+
+  it("saves Kilometers to the account and still shows it after signing out and back in", async () => {
+    setGoogleAccessToken("first-login");
+    const services = fakeSettingsServices({ "first-login": "me@example.com", "second-login": "me@example.com" });
+    render(<SettingsScreen services={services} />);
+
+    await userEvent.selectOptions(await unitField(), "Kilometers");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("Settings saved.");
+    expect(services.profiles.get("me@example.com")).toEqual({ baseAddress: "", distanceUnit: "kilometers" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    act(() => setGoogleAccessToken("second-login"));
+    expect(await unitField()).toHaveDisplayValue("Kilometers");
+  });
+
+  it("applies the saved unit to the distances on other screens", async () => {
+    setGoogleAccessToken("token");
+    const services = fakeSettingsServices();
+    render(
+      <DistanceUnitProvider services={services}>
+        <SettingsScreen services={services} />
+        <UnitProbe />
+      </DistanceUnitProvider>,
+    );
+    expect(await screen.findByTestId("unit")).toHaveTextContent("miles");
+
+    await userEvent.selectOptions(await unitField(), "Kilometers");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("Settings saved.");
+    expect(screen.getByTestId("unit")).toHaveTextContent("kilometers");
   });
 
   it("explains when Google Maps cannot find the address", async () => {

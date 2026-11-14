@@ -19,17 +19,22 @@ describe("buildEventsReport", () => {
       event({ id: "c", name: "Workshop", date: "2024-06-01", miles: null }),
     ]);
 
-    expect(report.head).toEqual(["Date", "Event", "Miles traveled"]);
+    expect(report.head).toEqual(["Date", "Event", "Distance traveled"]);
     expect(report.rows).toEqual([
-      ["15 March 2024", "Client visit - Acme", "42"],
+      ["15 March 2024", "Client visit - Acme", "42.0 mi"],
       ["1 June 2024", "Workshop", "N/A"],
-      ["20 September 2024", "Review", "10.3"],
+      ["20 September 2024", "Review", "10.3 mi"],
     ]);
+  });
+
+  it("shows the distances in kilometers when asked", () => {
+    const report = buildEventsReport(2024, [event({ miles: 10 }), event({ id: "b", miles: null })], "kilometers");
+    expect(report.rows.map((row) => row[2])).toEqual(["16.1 km", "N/A"]);
   });
 
   it("titles and names the file after the year", () => {
     const report = buildEventsReport(2024, []);
-    expect(report.title).toBe("Miles traveled in 2024");
-    expect(report.fileName).toBe("miles-traveled-2024.pdf");
+    expect(report.title).toBe("Distance traveled in 2024");
+    expect(report.fileName).toBe("distance-traveled-2024.pdf");
   });
 });

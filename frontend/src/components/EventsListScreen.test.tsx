@@ -42,13 +42,13 @@ describe("EventsListScreen", () => {
     await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
     expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token");
     expect(services.downloadEventsPdf).toHaveBeenCalledWith({
-      title: "Miles traveled in 2024",
-      fileName: "miles-traveled-2024.pdf",
-      head: ["Date", "Event", "Miles traveled"],
+      title: "Distance traveled in 2024",
+      fileName: "distance-traveled-2024.pdf",
+      head: ["Date", "Event", "Distance traveled"],
       rows: [
-        ["15 March 2024", "Client visit - Acme", "42"],
-        ["1 June 2024", "Workshop", "7.5"],
-        ["31 December 2024", "Review", "3"],
+        ["15 March 2024", "Client visit - Acme", "42.0 mi"],
+        ["1 June 2024", "Workshop", "7.5 mi"],
+        ["31 December 2024", "Review", "3.0 mi"],
       ],
     });
   });
@@ -104,20 +104,20 @@ describe("EventsListScreen", () => {
 
     expect(await screen.findByText("Client visit - Acme")).toBeInTheDocument();
     expect(screen.getByText(`10 March ${year}`)).toBeInTheDocument();
-    expect(rowOf("Client visit - Acme")).toHaveTextContent("10 mi");
-    expect(rowOf("Office")).toHaveTextContent("2 mi");
+    expect(rowOf("Client visit - Acme")).toHaveTextContent("10.0 mi");
+    expect(rowOf("Office")).toHaveTextContent("2.0 mi");
   });
 
   it("shows the distance in miles when the unit setting is miles", async () => {
     renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 }], "miles");
     await screen.findByText("Acme");
-    expect(rowOf("Acme")).toHaveTextContent("10 mi");
+    expect(rowOf("Acme")).toHaveTextContent("10.0 mi");
   });
 
   it("shows the distance in kilometers when the unit setting is kilometers", async () => {
     renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 21_000, miles: 13.05 }], "kilometers");
     await screen.findByText("Acme");
-    expect(rowOf("Acme")).toHaveTextContent("21 km");
+    expect(rowOf("Acme")).toHaveTextContent("21.0 km");
   });
 
   it("shows no distance for events without a location or whose location cannot be found, and the others normally", async () => {
@@ -130,8 +130,54 @@ describe("EventsListScreen", () => {
     await screen.findByText("Acme");
     expect(rowOf("No location").lastElementChild).toHaveTextContent(/^$/);
     expect(rowOf("Atlantis trip").lastElementChild).toHaveTextContent(/^$/);
-    expect(rowOf("Acme")).toHaveTextContent("21 km");
+    expect(rowOf("Acme")).toHaveTextContent("21.0 km");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows an event of 10 mi as 16.1 km when the unit is kilometers", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 }], "kilometers");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme").lastElementChild).toHaveTextContent(/^16\.1 km$/);
+  });
+
+  it("shows distances with exactly one decimal place", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 12.345 * 1609.344, miles: 12.345 }], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme").lastElementChild).toHaveTextContent(/^12\.3 mi$/);
+  });
+
+  it("totals the events' distances in kilometers from the unrounded distances", async () => {
+    // 1.04 mi each rounds to 1.7 km, but the total of 3.12 mi is 5.0 km, not 5.1 km.
+    renderCurrentYear(
+      ["a", "b", "c"].map((id) => ({ id, name: `Event ${id}`, location: "X", distanceMeters: 1.04 * 1609.344, miles: 1.04 })),
+      "kilometers",
+    );
+    await screen.findByText("Event a");
+    expect(rowOf("Event a").lastElementChild).toHaveTextContent("1.7 km");
+    expect(rowOf("Total").lastElementChild).toHaveTextContent(/^5\.0 km$/);
+  });
+
+  it("totals the events' distances in miles, skipping unknown ones", async () => {
+    renderCurrentYear([
+      { id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 },
+      { id: "n", name: "No location", location: null, distanceMeters: null, miles: null },
+      { id: "y", name: "Office", location: "Office", distanceMeters: 3_218.688, miles: 2 },
+    ], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Total").lastElementChild).toHaveTextContent(/^12\.0 mi$/);
+  });
+
+  it("downloads the PDF in the chosen unit", async () => {
+    const services = makeServices();
+    render(<EventsListScreen accessToken="token" services={services} unit="kilometers" />);
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Year" }), "2024");
+    await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
+
+    await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
+    expect(services.downloadEventsPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ rows: expect.arrayContaining([["15 March 2024", "Client visit - Acme", "67.6 km"]]) }),
+    );
   });
 
   it("says which base address the miles are measured from", async () => {

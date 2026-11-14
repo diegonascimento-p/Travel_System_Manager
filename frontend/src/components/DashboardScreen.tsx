@@ -2,7 +2,8 @@ import { useAsync } from "../hooks/useAsync";
 import { Link } from "../router/navigation";
 import { defaultTripsServices, type TripsServices } from "../services/tripsApi";
 import { formatMonth, localMonth } from "../utils/dates";
-import { formatDistance } from "../utils/format";
+import { useDistanceUnit } from "../settings/DistanceUnitContext";
+import { formatDistance } from "../utils/distance";
 import { AppShell } from "./AppShell";
 import { TripsTable } from "./TripsTable";
 import { Card, StatCard } from "./ui/Card";
@@ -20,6 +21,7 @@ interface Props {
 /** This month's mileage and the most recent trips. */
 export function DashboardScreen({ services = defaultTripsServices, today }: Props) {
   const month = localMonth(today);
+  const { unit } = useDistanceUnit();
   const data = useAsync(
     () => Promise.all([services.fetchMonthlyMileage(month), services.fetchTrips(RECENT_TRIPS, 0)]),
     [services, month],
@@ -45,8 +47,8 @@ export function DashboardScreen({ services = defaultTripsServices, today }: Prop
         <>
           <div className="stat-grid">
             <StatCard
-              label="Miles this month"
-              value={formatDistance(data.data[0].totalDistance)}
+              label="Distance this month"
+              value={formatDistance(data.data[0].totalDistance, unit)}
               hint={formatMonth(month)}
               icon={<GaugeIcon />}
             />
