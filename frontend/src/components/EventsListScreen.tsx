@@ -35,14 +35,14 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
   }, [accessToken, services, year]);
 
   return (
-    <main>
-      <h1>Events</h1>
+    <div className="events-screen">
+      <h2>Events</h2>
       <DownloadPdfControl
         onDownload={async (selectedYear) => {
           await downloadYearlyEventsPdf(selectedYear, accessToken, services);
         }}
       />
-      <h2>{year}</h2>
+      <h3>{year}</h3>
       {state.status === "loading" && <p>Loading events…</p>}
       {state.status === "error" && <p role="alert">{state.message}</p>}
       {state.status === "ready" && state.events.length === 0 && <p>No events this year.</p>}
@@ -66,6 +66,6 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
           </tbody>
         </table>
       )}
-    </main>
+    </div>
   );
 }
