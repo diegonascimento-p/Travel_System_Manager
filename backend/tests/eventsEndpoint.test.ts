@@ -4,12 +4,12 @@ import { createApp } from "../src/app.js";
 import type { EventRepository } from "../src/repositories/EventRepository.js";
 import { CalendarAccessError } from "../src/repositories/GoogleCalendarEventRepository.js";
 import { FakeGeocoder, InMemoryEventRepository } from "./fakes.js";
-import { migratedTripRepository } from "./tripDatabase.js";
+import { migratedSettingsRepository, migratedTripRepository } from "./tripDatabase.js";
 
 const geocoder = new FakeGeocoder({ "Acme HQ": { latitude: 42 / 69.0941, longitude: 0 } });
 
 function appWith(eventRepository: EventRepository) {
-  return createApp({ eventRepository, geocoder, tripRepository: migratedTripRepository() });
+  return createApp({ eventRepository, geocoder, tripRepository: migratedTripRepository(), settingsRepository: migratedSettingsRepository() });
 }
 
 describe("GET /api/events", () => {

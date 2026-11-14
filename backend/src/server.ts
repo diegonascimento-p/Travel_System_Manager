@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { openDatabase } from "./db/database.js";
 import { runMigrations } from "./db/migrate.js";
 import { GoogleCalendarEventRepository } from "./repositories/GoogleCalendarEventRepository.js";
+import { SqliteSettingsRepository } from "./repositories/SqliteSettingsRepository.js";
 import { SqliteTripRepository } from "./repositories/SqliteTripRepository.js";
 import { GoogleGeocoder } from "./services/GoogleGeocoder.js";
 
@@ -19,6 +20,7 @@ const app = createApp({
   eventRepository: new GoogleCalendarEventRepository(),
   geocoder: new GoogleGeocoder(apiKey),
   tripRepository: new SqliteTripRepository(db),
+  settingsRepository: new SqliteSettingsRepository(db),
 });
 
 app.listen(port, () => {

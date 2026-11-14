@@ -9,11 +9,23 @@ describe("runMigrations", () => {
   it("creates the trips table and applies each migration once", () => {
     const db = openDatabase(":memory:");
 
-    expect(runMigrations(db)).toEqual(["001_create_trips.sql"]);
+    expect(runMigrations(db)).toEqual(["001_create_trips.sql", "002_create_user_settings.sql"]);
     expect(runMigrations(db)).toEqual([]);
 
     const columns = db.prepare("PRAGMA table_info(trips)").all().map((c) => c.name);
     expect(columns).toEqual(["id", "date", "origin", "destination", "distance", "purpose", "created_at", "updated_at"]);
+  });
+
+  it("creates the user_settings table, which accepts only mi or km and a single account row", () => {
+    const db = openDatabase(":memory:");
+    runMigrations(db);
+
+    const columns = db.prepare("PRAGMA table_info(user_settings)").all().map((c) => c.name);
+    expect(columns).toEqual(["id", "distance_unit", "updated_at"]);
+    db.prepare("INSERT INTO user_settings (id) VALUES (1)").run();
+    expect(db.prepare("SELECT distance_unit FROM user_settings").get()?.distance_unit).toBe("mi");
+    expect(() => db.prepare("UPDATE user_settings SET distance_unit = 'yd'").run()).toThrow();
+    expect(() => db.prepare("INSERT INTO user_settings (id, distance_unit) VALUES (2, 'km')").run()).toThrow();
   });
 
   it("applies migrations in version order and rolls back a failing one", () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import type { TripRepository } from "../src/repositories/TripRepository.js";
 import { FakeGeocoder, InMemoryEventRepository } from "./fakes.js";
-import { migratedTripRepository } from "./tripDatabase.js";
+import { migratedSettingsRepository, migratedTripRepository } from "./tripDatabase.js";
 
 const trip = {
   date: "2026-11-03",
@@ -18,6 +18,7 @@ function appWith(tripRepository: TripRepository = migratedTripRepository()) {
     eventRepository: new InMemoryEventRepository([]),
     geocoder: new FakeGeocoder({}),
     tripRepository,
+    settingsRepository: migratedSettingsRepository(),
   });
 }
 
