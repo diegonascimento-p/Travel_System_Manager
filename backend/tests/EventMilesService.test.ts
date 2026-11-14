@@ -51,7 +51,7 @@ describe("EventMilesService.getEventsForYear", () => {
     expect(repository.calls).toEqual([{ accessToken: "token", from: "2024-01-01", to: "2024-12-31" }]);
   });
 
-  it("calculates the round trip from the base address to the location and back with Google Maps", async () => {
+  it("calculates the round trip from the base address to the location and back with the distance calculator", async () => {
     const { service, distances } = serviceWith([acme]);
 
     const { baseAddress, events } = await service.getEventsForYear("token", 2024);
@@ -115,7 +115,7 @@ describe("EventMilesService.getEventsForYear", () => {
     expect(result.events[0].distanceMeters).toBe(6_000);
   });
 
-  it("leaves mileage empty without a base address and does not call Google Maps", async () => {
+  it("leaves mileage empty without a base address and does not calculate distances", async () => {
     const { service, distances } = serviceWith([acme], null);
 
     const { baseAddress, events } = await service.getEventsForYear("token", 2024);
@@ -141,7 +141,7 @@ describe("EventMilesService.getEventsForYear", () => {
     expect(mileages.saved.get("user@example.com/u")?.distanceMeters).toBeNull();
   });
 
-  it("shows no mileage and saves nothing when Google Maps fails, so it is retried on the next load", async () => {
+  it("shows no mileage and saves nothing when the map services fail, so it is retried on the next load", async () => {
     const { service, distances, mileages } = serviceWith([acme]);
     distances.failure = new Error("OVER_QUERY_LIMIT");
 

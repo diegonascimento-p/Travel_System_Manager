@@ -80,7 +80,7 @@ function SettingsForm({ initial, onSave }: FormProps) {
   return (
     <Card
       title="Mileage"
-      description="The distance for each calendar event is the Google Maps driving distance from this address to the event's location."
+      description="The distance for each calendar event is the driving distance (OpenStreetMap) from this address to the event's location."
       className="form-card"
       action={
         <button type="button" className="button button-outline button-sm" onClick={signOutOfGoogle}>

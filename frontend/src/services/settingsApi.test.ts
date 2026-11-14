@@ -32,12 +32,12 @@ describe("settings API service", () => {
   });
 
   it("reports why the base address was rejected", async () => {
-    stubFetch(400, { error: "The settings are invalid", fields: { baseAddress: "Google Maps could not find this address." } });
+    stubFetch(400, { error: "The settings are invalid", fields: { baseAddress: "OpenStreetMap could not find this address. Check the spelling or add the city and country." } });
 
     const error = await saveSettings("token", { baseAddress: "Atlantis", distanceUnit: "miles" }).catch((e) => e);
 
     expect(error).toBeInstanceOf(SettingsApiError);
-    expect(error.fieldError).toBe("Google Maps could not find this address.");
+    expect(error.fieldError).toBe("OpenStreetMap could not find this address. Check the spelling or add the city and country.");
   });
 
   it("asks the user to sign in again when the token expired", async () => {

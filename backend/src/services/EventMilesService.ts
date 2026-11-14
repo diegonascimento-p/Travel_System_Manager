@@ -55,7 +55,7 @@ export class EventMilesService {
   }
 
   /**
-   * Calculates the events' mileage. When Google Maps fails as a whole (quota, network) nothing is
+   * Calculates the events' mileage. When the map services fail as a whole (Nominatim or OSRM error, timeout) nothing is
    * returned, so those events show no mileage now and are calculated again on the next load.
    */
   private async calculate(baseAddress: string, events: LocatedEvent[]): Promise<EventMileage[]> {
