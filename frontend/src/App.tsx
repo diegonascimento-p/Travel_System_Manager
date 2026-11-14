@@ -1,35 +1,44 @@
-import { useState } from "react";
-import { EventsListScreen } from "./components/EventsListScreen";
-import { requestCalendarAccessToken } from "./services/googleAuth";
+import { lazy, Suspense } from "react";
+import { AppShell } from "./components/AppShell";
+import { DashboardScreen } from "./components/DashboardScreen";
+import { TripFormScreen } from "./components/TripFormScreen";
+import { TripsListScreen } from "./components/TripsListScreen";
+import { Loading } from "./components/ui/States";
+import { Link, useLocation } from "./router/navigation";
+import { parseRoute } from "./router/routes";
 
-const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+// The calendar screen pulls in Google sign-in and PDF code, so it is only downloaded when opened.
+const CalendarEventsScreen = lazy(() =>
+  import("./components/CalendarEventsScreen").then((module) => ({ default: module.CalendarEventsScreen })),
+);
 
 export function App() {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
+  const [pathname, search = ""] = location.split(/(?=\?)/);
+  const route = parseRoute(pathname, search);
 
-  if (accessToken) return <EventsListScreen accessToken={accessToken} />;
-
-  async function signIn() {
-    setError(null);
-    try {
-      setAccessToken(await requestCalendarAccessToken(clientId!));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Google sign-in failed.");
-    }
+  switch (route.name) {
+    case "dashboard":
+      return <DashboardScreen />;
+    case "trips":
+      return <TripsListScreen page={route.page} />;
+    case "newTrip":
+      return <TripFormScreen key="new" />;
+    case "editTrip":
+      return <TripFormScreen key={route.id} tripId={route.id} />;
+    case "events":
+      return (
+        <Suspense fallback={<Loading label="Loading…" />}>
+          <CalendarEventsScreen />
+        </Suspense>
+      );
+    case "notFound":
+      return (
+        <AppShell active={null} title="Page not found">
+          <p>
+            This page does not exist. <Link to="/">Go to the dashboard</Link>.
+          </p>
+        </AppShell>
+      );
   }
-
-  return (
-    <main>
-      <h1>Travel System Manager</h1>
-      {clientId ? (
-        <button type="button" onClick={signIn}>
-          Sign in with Google
-        </button>
-      ) : (
-        <p role="alert">Set VITE_GOOGLE_CLIENT_ID to enable Google sign-in.</p>
-      )}
-      {error && <p role="alert">{error}</p>}
-    </main>
-  );
 }

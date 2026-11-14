@@ -14,3 +14,10 @@ export function formatMiles(miles: number | null): string {
   if (miles === null) return "N/A";
   return String(Math.round(miles * 10) / 10);
 }
+
+const distanceFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+
+/** Formats a distance in miles with at most one decimal and thousands separators, e.g. "1,234.5 mi". */
+export function formatDistance(miles: number): string {
+  return `${distanceFormat.format(miles)} mi`;
+}
