@@ -100,4 +100,19 @@ describe("DashboardScreen", () => {
     expect(within(header).getByRole("link", { name: "Add trip" })).toHaveAttribute("href", "/trips/new");
     await screen.findByText("No trips yet");
   });
+
+  it("shows the header's Add trip button in red", async () => {
+    render(<DashboardScreen services={fakeTripsServices()} today={today} />);
+    const addTrip = within(screen.getByRole("banner")).getByRole("link", { name: "Add trip" });
+    expect(addTrip).toHaveClass("button", "button-destructive");
+    expect(addTrip).not.toHaveClass("button-primary");
+    await screen.findByText("No trips yet");
+  });
+
+  it("keeps the sidebar's Add trip link out of the red button style", async () => {
+    render(<DashboardScreen services={fakeTripsServices()} today={today} />);
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Add trip" })).not.toHaveClass("button-destructive");
+    await screen.findByText("No trips yet");
+  });
 });
