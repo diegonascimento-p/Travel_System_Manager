@@ -18,6 +18,10 @@
   --accent: #eef2ff;
   --accent-foreground: #3730a3;
   --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
+  --destructive-active: #991b1b;
+  --destructive-foreground: #ffffff;
+  --destructive-ring: #fca5a5;
   --destructive-soft: #fef2f2;
   --ring: #a5b4fc;
   --radius: 0.75rem;
@@ -281,6 +285,23 @@ svg {
 
 .button-primary:hover {
   background: var(--primary-hover);
+}
+
+.button-destructive {
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+}
+
+.button-destructive:hover {
+  background: var(--destructive-hover);
+}
+
+.button-destructive:active {
+  background: var(--destructive-active);
+}
+
+.button-destructive:focus-visible {
+  outline-color: var(--destructive-ring);
 }
 
 .button-outline {
