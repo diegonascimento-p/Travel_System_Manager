@@ -84,6 +84,7 @@ describe("DashboardScreen", () => {
       "Trips",
       "Add trip",
       "Calendar events",
+      "Settings",
     ]);
     const header = screen.getByRole("banner");
     expect(within(header).getByRole("link", { name: "Add trip" })).toHaveAttribute("href", "/trips/new");

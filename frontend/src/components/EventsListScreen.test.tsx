@@ -4,8 +4,6 @@ import type { EventsServices } from "../controllers/yearlyEventsPdfController";
 import type { EventWithMiles } from "../models/event";
 import { EventsListScreen } from "./EventsListScreen";
 
-const origin = { latitude: 1, longitude: 2 };
-
 const eventsByYear: Record<number, EventWithMiles[]> = {
   2024: [
     { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 42 },
@@ -16,8 +14,7 @@ const eventsByYear: Record<number, EventWithMiles[]> = {
 
 function makeServices(overrides: Partial<EventsServices> = {}) {
   return {
-    getCurrentPosition: vi.fn(async () => origin),
-    fetchEventsForYear: vi.fn(async (year: number) => eventsByYear[year] ?? []),
+    fetchEventsForYear: vi.fn(async (year: number) => ({ baseAddress: "Home" as string | null, events: eventsByYear[year] ?? [] })),
     downloadEventsPdf: vi.fn(async () => {}),
     ...overrides,
   };
@@ -43,7 +40,7 @@ describe("EventsListScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
 
     await waitFor(() => expect(services.downloadEventsPdf).toHaveBeenCalledTimes(1));
-    expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token", origin);
+    expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token");
     expect(services.downloadEventsPdf).toHaveBeenCalledWith({
       title: "Miles traveled in 2024",
       fileName: "miles-traveled-2024.pdf",
@@ -64,7 +61,7 @@ describe("EventsListScreen", () => {
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Year" }), "2022");
     await userEvent.click(screen.getByRole("button", { name: "Download PDF" }));
 
-    await waitFor(() => expect(services.fetchEventsForYear).toHaveBeenCalledWith(2022, "token", origin));
+    await waitFor(() => expect(services.fetchEventsForYear).toHaveBeenCalledWith(2022, "token"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled());
     expect(services.downloadEventsPdf).not.toHaveBeenCalled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -72,8 +69,8 @@ describe("EventsListScreen", () => {
 
   it("explains why the PDF could not be generated", async () => {
     const services = makeServices({
-      getCurrentPosition: vi.fn(async () => {
-        throw new Error("Allow location access to calculate miles traveled.");
+      fetchEventsForYear: vi.fn(async () => {
+        throw new Error("Could not load events (status 502)");
       }),
     });
     render(<EventsListScreen accessToken="token" services={services} />);
@@ -96,5 +93,17 @@ describe("EventsListScreen", () => {
     expect(screen.getByText(`15 March ${year}`)).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
     delete eventsByYear[year];
+  });
+
+  it("says which base address the miles are measured from", async () => {
+    render(<EventsListScreen accessToken="token" services={makeServices()} />);
+    expect(await screen.findByText("Miles from Home.")).toBeInTheDocument();
+  });
+
+  it("asks for a base address when none is saved", async () => {
+    const services = makeServices({ fetchEventsForYear: vi.fn(async () => ({ baseAddress: null, events: [] })) });
+    render(<EventsListScreen accessToken="token" services={services} />);
+
+    expect(await screen.findByRole("link", { name: "Set your base address" })).toHaveAttribute("href", "/settings");
   });
 });

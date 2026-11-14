@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "../router/navigation";
-import { CalendarIcon, CloseIcon, DashboardIcon, MenuIcon, PlusIcon, RouteIcon } from "./ui/icons";
+import { CalendarIcon, CloseIcon, DashboardIcon, MenuIcon, PlusIcon, RouteIcon, SettingsIcon } from "./ui/icons";
 
-export type NavSection = "dashboard" | "trips" | "newTrip" | "events";
+export type NavSection = "dashboard" | "trips" | "newTrip" | "events" | "settings";
 
 interface Props {
   active: NavSection | null;
@@ -18,6 +18,7 @@ const NAV_ITEMS: { section: NavSection; to: string; label: string; icon: ReactNo
   { section: "trips", to: "/trips", label: "Trips", icon: <RouteIcon /> },
   { section: "newTrip", to: "/trips/new", label: "Add trip", icon: <PlusIcon /> },
   { section: "events", to: "/events", label: "Calendar events", icon: <CalendarIcon /> },
+  { section: "settings", to: "/settings", label: "Settings", icon: <SettingsIcon /> },
 ];
 
 /**

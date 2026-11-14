@@ -4,6 +4,7 @@ export type Route =
   | { name: "newTrip" }
   | { name: "editTrip"; id: number }
   | { name: "events" }
+  | { name: "settings" }
   | { name: "notFound" };
 
 /** Maps a URL path and query string to the screen it shows. */
@@ -13,6 +14,7 @@ export function parseRoute(pathname: string, search = ""): Route {
   if (path === "/trips") return { name: "trips", page: pageFrom(search) };
   if (path === "/trips/new") return { name: "newTrip" };
   if (path === "/events") return { name: "events" };
+  if (path === "/settings") return { name: "settings" };
   const edit = path.match(/^\/trips\/(\d+)\/edit$/);
   if (edit) return { name: "editTrip", id: Number(edit[1]) };
   return { name: "notFound" };
@@ -31,6 +33,8 @@ export function pathFor(route: Route): string {
       return `/trips/${route.id}/edit`;
     case "events":
       return "/events";
+    case "settings":
+      return "/settings";
     case "notFound":
       return "/";
   }

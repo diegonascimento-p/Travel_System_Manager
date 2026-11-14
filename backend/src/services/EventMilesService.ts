@@ -1,37 +1,49 @@
-import type { CalendarEvent, Coordinates, EventWithMiles } from "../models/Event.js";
+import type { CalendarEvent, EventWithMiles } from "../models/Event.js";
 import type { EventRepository } from "../repositories/EventRepository.js";
 import { isInYear, yearBounds } from "./calendarYear.js";
-import { milesBetween } from "./distance.js";
-import type { Geocoder } from "./Geocoder.js";
+import type { DistanceCalculator } from "./DistanceCalculator.js";
+import type { UserProfileService } from "./UserProfileService.js";
+
+export interface EventsForYear {
+  /** The base address the miles were measured from; null when the user has not saved one. */
+  baseAddress: string | null;
+  events: EventWithMiles[];
+}
 
 export class EventMilesService {
   constructor(
     private readonly events: EventRepository,
-    private readonly geocoder: Geocoder,
+    private readonly profiles: UserProfileService,
+    private readonly distances: DistanceCalculator,
   ) {}
 
   /**
-   * Returns every event in the calendar year, oldest first, with the miles from
-   * the user's current position to the event's location.
+   * Returns every event in the calendar year, oldest first, with the driving miles from the
+   * user's saved base address to the event's location.
    */
-  async getEventsForYear(
-    accessToken: string,
-    year: number,
-    origin: Coordinates,
-  ): Promise<EventWithMiles[]> {
+  async getEventsForYear(accessToken: string, year: number): Promise<EventsForYear> {
     const { from, to } = yearBounds(year);
-    const events = await this.events.findByDateRange(accessToken, from, to);
+    const [events, profile] = await Promise.all([
+      this.events.findByDateRange(accessToken, from, to),
+      this.profiles.getProfile(accessToken),
+    ]);
     const inYear = events.filter((event) => isInYear(event.date, year)).sort(byDate);
-    return Promise.all(inYear.map((event) => this.withMiles(event, origin)));
-  }
-
-  private async withMiles(event: CalendarEvent, origin: Coordinates): Promise<EventWithMiles> {
-    const destination = event.location ? await this.geocoder.geocode(event.location) : null;
+    const miles = await this.milesFromBase(profile.baseAddress, inYear);
     return {
-      ...event,
-      miles: destination ? milesBetween(origin, destination) : null,
+      baseAddress: profile.baseAddress,
+      events: inYear.map((event) => ({ ...event, miles: milesTo(event, miles) })),
     };
   }
+
+  private async milesFromBase(baseAddress: string | null, events: CalendarEvent[]): Promise<Map<string, number>> {
+    const locations = events.flatMap((event) => (event.location ? [event.location] : []));
+    if (baseAddress === null || locations.length === 0) return new Map();
+    return this.distances.milesFrom(baseAddress, locations);
+  }
+}
+
+function milesTo(event: CalendarEvent, miles: Map<string, number>): number | null {
+  return event.location ? (miles.get(event.location) ?? null) : null;
 }
 
 function byDate(a: CalendarEvent, b: CalendarEvent): number {

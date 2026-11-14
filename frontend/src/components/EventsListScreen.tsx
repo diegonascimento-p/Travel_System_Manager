@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { downloadYearlyEventsPdf, type EventsServices } from "../controllers/yearlyEventsPdfController";
-import type { EventWithMiles } from "../models/event";
+import type { YearEvents } from "../models/event";
+import { Link } from "../router/navigation";
 import { defaultEventsServices } from "../services";
 import { formatEventDate, formatMiles } from "../utils/format";
 import { DownloadPdfControl } from "./DownloadPdfControl";
@@ -13,7 +14,7 @@ interface Props {
 type ListState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; events: EventWithMiles[] };
+  | ({ status: "ready" } & YearEvents);
 
 /** Lists this year's events with miles traveled, and offers a yearly PDF download. */
 export function EventsListScreen({ accessToken, services = defaultEventsServices }: Props) {
@@ -23,9 +24,8 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
   useEffect(() => {
     let active = true;
     services
-      .getCurrentPosition()
-      .then((origin) => services.fetchEventsForYear(year, accessToken, origin))
-      .then((events) => active && setState({ status: "ready", events }))
+      .fetchEventsForYear(year, accessToken)
+      .then((result) => active && setState({ status: "ready", ...result }))
       .catch((e: unknown) =>
         active && setState({ status: "error", message: e instanceof Error ? e.message : "Could not load events." }),
       );
@@ -45,6 +45,12 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
       <h3>{year}</h3>
       {state.status === "loading" && <p>Loading events…</p>}
       {state.status === "error" && <p role="alert">{state.message}</p>}
+      {state.status === "ready" && state.baseAddress === null && (
+        <p role="note">
+          Miles are measured from your base address. <Link to="/settings">Set your base address</Link> to calculate them.
+        </p>
+      )}
+      {state.status === "ready" && state.baseAddress !== null && <p>Miles from {state.baseAddress}.</p>}
       {state.status === "ready" && state.events.length === 0 && <p>No events this year.</p>}
       {state.status === "ready" && state.events.length > 0 && (
         <table>
