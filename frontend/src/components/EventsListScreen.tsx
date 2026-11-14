@@ -1,0 +1,71 @@
+import { useEffect, useState } from "react";
+import { downloadYearlyEventsPdf, type EventsServices } from "../controllers/yearlyEventsPdfController";
+import type { EventWithMiles } from "../models/event";
+import { defaultEventsServices } from "../services";
+import { formatEventDate, formatMiles } from "../utils/format";
+import { DownloadPdfControl } from "./DownloadPdfControl";
+
+interface Props {
+  accessToken: string;
+  services?: EventsServices;
+}
+
+type ListState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | { status: "ready"; events: EventWithMiles[] };
+
+/** Lists this year's events with miles traveled, and offers a yearly PDF download. */
+export function EventsListScreen({ accessToken, services = defaultEventsServices }: Props) {
+  const year = new Date().getFullYear();
+  const [state, setState] = useState<ListState>({ status: "loading" });
+
+  useEffect(() => {
+    let active = true;
+    services
+      .getCurrentPosition()
+      .then((origin) => services.fetchEventsForYear(year, accessToken, origin))
+      .then((events) => active && setState({ status: "ready", events }))
+      .catch((e: unknown) =>
+        active && setState({ status: "error", message: e instanceof Error ? e.message : "Could not load events." }),
+      );
+    return () => {
+      active = false;
+    };
+  }, [accessToken, services, year]);
+
+  return (
+    <main>
+      <h1>Events</h1>
+      <DownloadPdfControl
+        onDownload={async (selectedYear) => {
+          await downloadYearlyEventsPdf(selectedYear, accessToken, services);
+        }}
+      />
+      <h2>{year}</h2>
+      {state.status === "loading" && <p>Loading events…</p>}
+      {state.status === "error" && <p role="alert">{state.message}</p>}
+      {state.status === "ready" && state.events.length === 0 && <p>No events this year.</p>}
+      {state.status === "ready" && state.events.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Event</th>
+              <th>Miles traveled</th>
+            </tr>
+          </thead>
+          <tbody>
+            {state.events.map((event) => (
+              <tr key={event.id}>
+                <td>{formatEventDate(event.date)}</td>
+                <td>{event.name}</td>
+                <td>{formatMiles(event.miles)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </main>
+  );
+}
