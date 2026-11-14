@@ -90,3 +90,12 @@ export const AlertIcon = () => (
     <path d="M12 16h.01" />
   </Icon>
 );
+
+export const SettingsIcon = () => (
+  <Icon>
+    <path d="M20 7h-9" />
+    <path d="M14 17H5" />
+    <circle cx="17" cy="17" r="3" />
+    <circle cx="7" cy="7" r="3" />
+  </Icon>
+);

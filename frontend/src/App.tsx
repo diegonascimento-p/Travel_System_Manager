@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { AppShell } from "./components/AppShell";
 import { DashboardScreen } from "./components/DashboardScreen";
+import { SettingsScreen } from "./components/SettingsScreen";
 import { TripFormScreen } from "./components/TripFormScreen";
 import { TripsListScreen } from "./components/TripsListScreen";
 import { Loading } from "./components/ui/States";
@@ -32,6 +33,8 @@ export function App() {
           <CalendarEventsScreen />
         </Suspense>
       );
+    case "settings":
+      return <SettingsScreen />;
     case "notFound":
       return (
         <AppShell active={null} title="Page not found">

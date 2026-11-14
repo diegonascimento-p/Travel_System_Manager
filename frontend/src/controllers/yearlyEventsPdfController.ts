@@ -1,9 +1,8 @@
-import type { Coordinates, EventWithMiles } from "../models/event";
+import type { YearEvents } from "../models/event";
 import { buildEventsReport, type EventsReport } from "../pdf/eventsReport";
 
 export interface EventsServices {
-  getCurrentPosition(): Promise<Coordinates>;
-  fetchEventsForYear(year: number, accessToken: string, origin: Coordinates): Promise<EventWithMiles[]>;
+  fetchEventsForYear(year: number, accessToken: string): Promise<YearEvents>;
   downloadEventsPdf(report: EventsReport): Promise<void>;
 }
 
@@ -17,8 +16,7 @@ export async function downloadYearlyEventsPdf(
   accessToken: string,
   services: EventsServices,
 ): Promise<PdfDownloadResult> {
-  const origin = await services.getCurrentPosition();
-  const events = await services.fetchEventsForYear(year, accessToken, origin);
+  const { events } = await services.fetchEventsForYear(year, accessToken);
   if (events.length === 0) return "empty";
   await services.downloadEventsPdf(buildEventsReport(year, events));
   return "downloaded";
