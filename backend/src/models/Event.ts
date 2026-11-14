@@ -1,3 +1,4 @@
+/** A point on the map, as returned by geocoding. */
 export interface Coordinates {
   latitude: number;
   longitude: number;
@@ -19,6 +20,9 @@ export interface EventWithMiles {
   name: string;
   date: string;
   location: string | null;
-  /** Miles from the user's current position to the event location; null when the location is unknown. */
+  /**
+   * Driving miles from the user's base address to the event location; null when there is no base
+   * address, the event has no location, or Google Maps cannot route between them.
+   */
   miles: number | null;
 }
