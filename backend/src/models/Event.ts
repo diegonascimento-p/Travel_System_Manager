@@ -22,7 +22,7 @@ export interface EventWithMiles {
   location: string | null;
   /**
    * Round-trip driving meters: base address to the event location plus the location back to the
-   * base address. Null when there is no base address, the event has no location, or Google Maps
+   * base address. Null when there is no base address, the event has no location, or OpenStreetMap
    * cannot find or route to it.
    */
   distanceMeters: number | null;

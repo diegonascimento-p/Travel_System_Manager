@@ -15,7 +15,7 @@ function fakeSettingsServices(accounts: Record<string, string> = {}) {
     fetchSettings: vi.fn(async (token: string): Promise<UserSettings> => profiles.get(account(token)) ?? { baseAddress: null, distanceUnit: "miles" }),
     saveSettings: vi.fn(async (token: string, settings: UserSettings) => {
       if (settings.baseAddress === "Atlantis") {
-        throw new SettingsApiError("The settings are invalid", "Google Maps could not find this address.");
+        throw new SettingsApiError("The settings are invalid", "OpenStreetMap could not find this address. Check the spelling or add the city and country.");
       }
       profiles.set(account(token), settings);
       return settings;
@@ -137,13 +137,13 @@ describe("SettingsScreen", () => {
     expect(screen.getByTestId("unit")).toHaveTextContent("kilometers");
   });
 
-  it("explains when Google Maps cannot find the address", async () => {
+  it("explains when OpenStreetMap cannot find the address", async () => {
     setGoogleAccessToken("token");
     render(<SettingsScreen services={fakeSettingsServices()} />);
 
     await saveAddress("Atlantis");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Google Maps could not find this address.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("OpenStreetMap could not find this address. Check the spelling or add the city and country.");
     expect(await field()).toHaveAttribute("aria-invalid", "true");
   });
 

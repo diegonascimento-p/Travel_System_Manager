@@ -7,7 +7,7 @@ export interface EventWithMiles {
   location: string | null;
   /**
    * Round-trip driving meters (base address to location and back). Null without a base address,
-   * or when the event has no location Google Maps can find.
+   * or when the event has no location OpenStreetMap can find or route to.
    */
   distanceMeters: number | null;
   /** `distanceMeters` in miles; null when unknown. */

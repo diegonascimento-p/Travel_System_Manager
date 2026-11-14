@@ -56,14 +56,14 @@ describe("/api/settings", () => {
     expect((await get(app, "second-login")).body).toEqual({ baseAddress: "2 Oak Ave, Springfield", distanceUnit: "miles" });
   });
 
-  it("rejects an address Google Maps cannot find without changing the saved one", async () => {
+  it("rejects an address OpenStreetMap cannot find without changing the saved one", async () => {
     const app = appWith();
     await put(app, "first-login", { baseAddress: "1 Main St, Springfield" });
 
     const response = await put(app, "first-login", { baseAddress: "Atlantis" });
 
     expect(response.status).toBe(400);
-    expect(response.body.fields).toEqual({ baseAddress: "Google Maps could not find this address." });
+    expect(response.body.fields).toEqual({ baseAddress: "OpenStreetMap could not find this address. Check the spelling or add the city and country." });
     expect((await get(app, "first-login")).body).toEqual({ baseAddress: "1 Main St, Springfield", distanceUnit: "miles" });
   });
 

@@ -47,7 +47,7 @@ describe("UserProfileService", () => {
   });
 
   it.each([
-    [{ baseAddress: "Atlantis" }, "Google Maps could not find this address."],
+    [{ baseAddress: "Atlantis" }, "OpenStreetMap could not find this address. Check the spelling or add the city and country."],
     [{ baseAddress: 12 }, "Base address must be text."],
     [{ baseAddress: "x".repeat(301) }, "Base address must be at most 300 characters."],
     [{}, "Base address is required."],

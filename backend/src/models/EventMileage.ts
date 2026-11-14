@@ -3,6 +3,6 @@ export interface EventMileage {
   eventId: string;
   baseAddress: string;
   location: string;
-  /** Round-trip driving meters; null when Google Maps could not find the location. */
+  /** Round-trip driving meters; null when OpenStreetMap could not find or route to the location. */
   distanceMeters: number | null;
 }

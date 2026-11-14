@@ -40,7 +40,7 @@ export class UserProfileService {
     const baseAddress = parseBaseAddress(input);
     const distanceUnit = parseDistanceUnit(input);
     if (baseAddress !== null && !(await this.geocoder.geocode(baseAddress))) {
-      throw new UserProfileValidationError({ baseAddress: "Google Maps could not find this address." });
+      throw new UserProfileValidationError({ baseAddress: "OpenStreetMap could not find this address. Check the spelling or add the city and country." });
     }
     const { userId, profile } = await this.getUserProfile(accessToken);
     return this.profiles.save(userId, { baseAddress, distanceUnit: distanceUnit ?? profile.distanceUnit });
