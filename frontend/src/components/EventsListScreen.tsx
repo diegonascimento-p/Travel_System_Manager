@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { downloadYearlyEventsPdf, type EventsServices } from "../controllers/yearlyEventsPdfController";
+import { DEFAULT_DISTANCE_UNIT, type DistanceUnit } from "../models/distanceUnit";
 import type { YearEvents } from "../models/event";
 import { Link } from "../router/navigation";
 import { defaultEventsServices } from "../services";
-import { formatEventDate, formatMiles } from "../utils/format";
+import { formatEventDate, formatMeters } from "../utils/format";
 import { DownloadPdfControl } from "./DownloadPdfControl";
 
 interface Props {
   accessToken: string;
   services?: EventsServices;
+  /** The user's unit setting for showing distances. */
+  unit?: DistanceUnit;
 }
 
 type ListState =
@@ -16,8 +19,8 @@ type ListState =
   | { status: "error"; message: string }
   | ({ status: "ready" } & YearEvents);
 
-/** Lists this year's events with miles traveled, and offers a yearly PDF download. */
-export function EventsListScreen({ accessToken, services = defaultEventsServices }: Props) {
+/** Lists this year's events with the round-trip distance in the user's unit, and offers a yearly PDF download. */
+export function EventsListScreen({ accessToken, services = defaultEventsServices, unit = DEFAULT_DISTANCE_UNIT }: Props) {
   const year = new Date().getFullYear();
   const [state, setState] = useState<ListState>({ status: "loading" });
 
@@ -58,7 +61,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
             <tr>
               <th>Date</th>
               <th>Event</th>
-              <th>Miles traveled</th>
+              <th>Round trip</th>
             </tr>
           </thead>
           <tbody>
@@ -66,7 +69,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
               <tr key={event.id}>
                 <td>{formatEventDate(event.date)}</td>
                 <td>{event.name}</td>
-                <td>{formatMiles(event.miles)}</td>
+                <td>{formatMeters(event.distanceMeters, unit)}</td>
               </tr>
             ))}
           </tbody>

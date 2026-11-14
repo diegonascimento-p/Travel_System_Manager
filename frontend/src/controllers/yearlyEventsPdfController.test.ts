@@ -11,7 +11,7 @@ function servicesReturning(events: EventWithMiles[]) {
 describe("downloadYearlyEventsPdf", () => {
   it("fetches the year's events from the base address and downloads the PDF", async () => {
     const services = servicesReturning([
-      { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 42 },
+      { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", distanceMeters: 67_592, miles: 42 },
     ]);
 
     await expect(downloadYearlyEventsPdf(2024, "token", services)).resolves.toBe("downloaded");

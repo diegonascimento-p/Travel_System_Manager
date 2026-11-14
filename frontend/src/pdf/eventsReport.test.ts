@@ -6,6 +6,7 @@ const event = (overrides: Partial<EventWithMiles>): EventWithMiles => ({
   name: "Event",
   date: "2024-01-01",
   location: "Somewhere",
+  distanceMeters: 1609.344,
   miles: 1,
   ...overrides,
 });

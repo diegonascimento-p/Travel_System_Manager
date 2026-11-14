@@ -1,5 +1,7 @@
 import type { CalendarEvent, Coordinates } from "../src/models/Event.js";
 import type { EventRepository } from "../src/repositories/EventRepository.js";
+import type { EventMileage } from "../src/models/EventMileage.js";
+import type { EventMileageRepository } from "../src/repositories/EventMileageRepository.js";
 import type { UserProfile } from "../src/models/UserProfile.js";
 import type { UserIdentityRepository } from "../src/repositories/UserIdentityRepository.js";
 import type { UserProfileRepository } from "../src/repositories/UserProfileRepository.js";
@@ -26,20 +28,57 @@ export class FakeGeocoder implements Geocoder {
   }
 }
 
-/** Driving miles keyed by `origin -> destination`; unknown pairs cannot be routed. */
+/** Driving meters keyed by `origin -> destination`; unknown pairs cannot be routed. */
 export class FakeDistanceCalculator implements DistanceCalculator {
-  readonly calls: { origin: string; destinations: string[] }[] = [];
+  readonly calls: { origins: string[]; destinations: string[] }[] = [];
+  failure: Error | null = null;
 
-  constructor(private readonly miles: Record<string, number>) {}
+  constructor(private readonly meters: Record<string, number>) {}
 
-  async milesFrom(origin: string, destinations: string[]): Promise<Map<string, number>> {
-    this.calls.push({ origin, destinations });
+  async metersFrom(origin: string, destinations: string[]): Promise<Map<string, number>> {
+    return this.lookup([origin], destinations, (destination) => `${origin} -> ${destination}`, destinations);
+  }
+
+  async metersTo(origins: string[], destination: string): Promise<Map<string, number>> {
+    return this.lookup(origins, [destination], (origin) => `${origin} -> ${destination}`, origins);
+  }
+
+  private async lookup(
+    origins: string[],
+    destinations: string[],
+    pair: (address: string) => string,
+    addresses: string[],
+  ): Promise<Map<string, number>> {
+    this.calls.push({ origins, destinations });
+    if (this.failure) throw this.failure;
     const result = new Map<string, number>();
-    for (const destination of destinations) {
-      const miles = this.miles[`${origin} -> ${destination}`];
-      if (miles !== undefined) result.set(destination, miles);
+    for (const address of addresses) {
+      const meters = this.meters[pair(address)];
+      if (meters !== undefined) result.set(address, meters);
     }
     return result;
+  }
+}
+
+/** Same distance both ways for each `[from, to, meters]`, keyed as FakeDistanceCalculator expects. */
+export function symmetric(...legs: [string, string, number][]): Record<string, number> {
+  return Object.fromEntries(legs.flatMap(([a, b, meters]) => [[`${a} -> ${b}`, meters], [`${b} -> ${a}`, meters]]));
+}
+
+export class InMemoryEventMileageRepository implements EventMileageRepository {
+  readonly saved = new Map<string, EventMileage>();
+
+  async findByEventIds(userId: string, eventIds: string[]): Promise<Map<string, EventMileage>> {
+    const found = new Map<string, EventMileage>();
+    for (const id of eventIds) {
+      const mileage = this.saved.get(`${userId}/${id}`);
+      if (mileage) found.set(id, { ...mileage });
+    }
+    return found;
+  }
+
+  async saveAll(userId: string, mileages: EventMileage[]): Promise<void> {
+    for (const mileage of mileages) this.saved.set(`${userId}/${mileage.eventId}`, { ...mileage });
   }
 }
 
