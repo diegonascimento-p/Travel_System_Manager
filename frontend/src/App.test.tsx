@@ -79,6 +79,17 @@ describe("App", () => {
     expect(within(screen.getByRole("region", { name: "Recent trips" })).getByText("Client visit")).toBeInTheDocument();
   });
 
+  it("opens the Add trip form from the dashboard's red Add trip button", async () => {
+    vi.stubGlobal("fetch", fakeTripsBackend());
+    openApp("/");
+
+    await userEvent.click(within(screen.getByRole("banner")).getByRole("link", { name: "Add trip" }));
+
+    expect(window.location.pathname).toBe("/trips/new");
+    expect(screen.getByRole("heading", { level: 1, name: "Add trip" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save trip" })).toBeInTheDocument();
+  });
+
   it("edits a trip from the trips list and shows the saved changes", async () => {
     const today = localDate();
     vi.stubGlobal(

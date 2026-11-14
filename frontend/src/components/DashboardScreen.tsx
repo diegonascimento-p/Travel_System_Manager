@@ -33,7 +33,7 @@ export function DashboardScreen({ services = defaultTripsServices, today }: Prop
       title="Dashboard"
       description="Your mileage at a glance."
       actions={
-        <Link to="/trips/new" className="button button-primary">
+        <Link to="/trips/new" className="button button-destructive">
           <PlusIcon />
           <span>Add trip</span>
         </Link>
