@@ -9,6 +9,7 @@ describe("parseRoute", () => {
     ["/trips/new", "", { name: "newTrip" }],
     ["/trips/12/edit", "", { name: "editTrip", id: 12 }],
     ["/events", "", { name: "events" }],
+    ["/settings", "", { name: "settings" }],
     ["/trips/abc/edit", "", { name: "notFound" }],
     ["/candidates", "", { name: "notFound" }],
   ])("maps %s%s to its screen", (path, search, route) => {

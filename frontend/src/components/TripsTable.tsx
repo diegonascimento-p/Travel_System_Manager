@@ -1,7 +1,9 @@
 import type { Trip } from "../models/trip";
 import { Link } from "../router/navigation";
 import { pathFor } from "../router/routes";
-import { formatDistance, formatEventDate } from "../utils/format";
+import { useDistanceUnit } from "../settings/DistanceUnitContext";
+import { formatDistance } from "../utils/distance";
+import { formatEventDate } from "../utils/format";
 import { PencilIcon } from "./ui/icons";
 
 interface Props {
@@ -14,6 +16,7 @@ interface Props {
  * (see `.data-table` in styles.css) so no column is cut off.
  */
 export function TripsTable({ trips, caption }: Props) {
+  const { unit } = useDistanceUnit();
   return (
     <div className="table-wrapper">
       <table className="data-table">
@@ -41,7 +44,7 @@ export function TripsTable({ trips, caption }: Props) {
               <td data-label="Origin">{trip.origin}</td>
               <td data-label="Destination">{trip.destination}</td>
               <td data-label="Distance" className="numeric nowrap">
-                <span className="badge">{formatDistance(trip.distance)}</span>
+                <span className="badge">{formatDistance(trip.distance, unit)}</span>
               </td>
               <td data-label="Purpose" className="muted">
                 {trip.purpose}

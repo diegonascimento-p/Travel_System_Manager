@@ -5,7 +5,7 @@ import type { Trip } from "./models/trip";
 import { localDate, localMonth } from "./utils/dates";
 
 /** Answers the app's fetch calls like the trips API, keeping trips in memory. */
-function fakeTripsBackend(initial: Trip[] = []) {
+function fakeTripsBackend(initial: Trip[] = [], settings = { distanceUnit: "mi" }) {
   const trips = [...initial];
   const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
   const newestFirst = () => [...trips].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
@@ -13,6 +13,10 @@ function fakeTripsBackend(initial: Trip[] = []) {
   return vi.fn(async (input: string, init: RequestInit = {}) => {
     const url = new URL(input, "http://localhost");
     const method = init.method ?? "GET";
+    if (url.pathname === "/api/settings") {
+      if (method === "PUT") Object.assign(settings, JSON.parse(String(init.body)));
+      return json(200, { ...settings });
+    }
     const id = Number(url.pathname.split("/")[3]);
     if (url.pathname === "/api/trips/summary") {
       const month = url.searchParams.get("month")!;
@@ -63,7 +67,7 @@ describe("App", () => {
     const nav = screen.getByRole("navigation", { name: "Main" });
     await userEvent.click(within(nav).getByRole("link", { name: "Dashboard" }));
 
-    const miles = await screen.findByRole("region", { name: "Miles this month" });
+    const miles = await screen.findByRole("region", { name: "Distance this month" });
     expect(within(miles).getByText("42.5 mi")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Recent trips" })).getByText("Client visit")).toBeInTheDocument();
   });
@@ -100,8 +104,46 @@ describe("App", () => {
     vi.stubGlobal("fetch", backend);
     openApp("/");
 
-    await screen.findByRole("region", { name: "Miles this month" });
+    await screen.findByRole("region", { name: "Distance this month" });
     expect(backend).toHaveBeenCalledWith(`/api/trips/summary?month=${localMonth()}`, expect.anything());
+  });
+
+  it("saves the distance unit to the account and shows every distance in it, also after signing in again", async () => {
+    const settings = { distanceUnit: "mi" };
+    const backend = fakeTripsBackend(
+      [{ id: 1, date: localDate(), origin: "Office", destination: "Acme HQ", distance: 10, purpose: "Visit" }],
+      settings,
+    );
+    vi.stubGlobal("fetch", backend);
+    const first = openApp("/trips");
+    expect(await within(await screen.findByRole("table", { name: "All trips" })).findByText("10.0 mi")).toBeInTheDocument();
+
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Settings" }));
+    const unit = await screen.findByRole("combobox", { name: "Distance unit" });
+    expect(unit).toHaveDisplayValue("Miles");
+    await userEvent.selectOptions(unit, "Kilometers");
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Settings saved.");
+    expect(settings).toEqual({ distanceUnit: "km" });
+    expect(backend).toHaveBeenCalledWith("/api/settings", expect.objectContaining({ method: "PUT", body: '{"distanceUnit":"km"}' }));
+
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Dashboard" }));
+    const total = await screen.findByRole("region", { name: "Distance this month" });
+    expect(within(total).getByText("16.1 km")).toBeInTheDocument();
+
+    // A new session (log out, log back in) loads the unit from the account again.
+    first.unmount();
+    openApp("/trips");
+    expect(await within(await screen.findByRole("table", { name: "All trips" })).findByText("16.1 km")).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Settings" }));
+    expect(await screen.findByRole("combobox", { name: "Distance unit" })).toHaveDisplayValue("Kilometers");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Distance unit" }), "Miles");
+    await userEvent.click(screen.getByRole("button", { name: "Save settings" }));
+    await screen.findByRole("status");
+    await userEvent.click(within(screen.getByRole("navigation", { name: "Main" })).getByRole("link", { name: "Trips" }));
+    expect(await within(await screen.findByRole("table", { name: "All trips" })).findByText("10.0 mi")).toBeInTheDocument();
   });
 
   it("shows a not found page for unknown addresses", () => {

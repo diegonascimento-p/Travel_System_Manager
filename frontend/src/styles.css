@@ -545,7 +545,8 @@ svg {
   max-width: 48rem;
 }
 
-.trip-form {
+.trip-form,
+.settings-form {
   display: grid;
   gap: 1.25rem;
 }

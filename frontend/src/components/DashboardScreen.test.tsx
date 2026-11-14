@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithUnit } from "../testing/fakeSettingsServices";
 import { fakeTripsServices, trip } from "../testing/fakeTripsServices";
 import { DashboardScreen } from "./DashboardScreen";
 
@@ -14,11 +15,20 @@ describe("DashboardScreen", () => {
     ]);
     render(<DashboardScreen services={services} today={today} />);
 
-    const miles = await screen.findByRole("region", { name: "Miles this month" });
+    const miles = await screen.findByRole("region", { name: "Distance this month" });
     expect(within(miles).getByText("42.5 mi")).toBeInTheDocument();
     expect(within(miles).getByText("November 2026")).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Trips this month" })).getByText("2")).toBeInTheDocument();
     expect(services.fetchMonthlyMileage).toHaveBeenCalledWith("2026-11");
+  });
+
+  it("shows the month's total in kilometers with the 'km' label when Kilometers is selected", async () => {
+    const services = fakeTripsServices([trip(1, "2026-11-01", { distance: 10 }), trip(2, "2026-11-02", { distance: 2.5 })]);
+    renderWithUnit(<DashboardScreen services={services} today={today} />, "km");
+
+    const total = await screen.findByRole("region", { name: "Distance this month" });
+    expect(await within(total).findByText("20.1 km")).toBeInTheDocument();
+    expect(within(screen.getByRole("table", { name: "Recent trips" })).getByText("16.1 km")).toBeInTheDocument();
   });
 
   it("lists the five most recent trips, newest first", async () => {
@@ -48,8 +58,8 @@ describe("DashboardScreen", () => {
   it("shows zero miles when the month has no trips", async () => {
     render(<DashboardScreen services={fakeTripsServices([trip(1, "2026-10-31")])} today={today} />);
 
-    const miles = await screen.findByRole("region", { name: "Miles this month" });
-    expect(within(miles).getByText("0 mi")).toBeInTheDocument();
+    const miles = await screen.findByRole("region", { name: "Distance this month" });
+    expect(within(miles).getByText("0.0 mi")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -70,8 +80,8 @@ describe("DashboardScreen", () => {
     expect(screen.queryByText(/mi$/)).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
-    const miles = await screen.findByRole("region", { name: "Miles this month" });
-    expect(within(miles).getByText("8 mi")).toBeInTheDocument();
+    const miles = await screen.findByRole("region", { name: "Distance this month" });
+    expect(within(miles).getByText("8.0 mi")).toBeInTheDocument();
   });
 
   it("is framed by the sidebar navigation and header", async () => {
@@ -84,6 +94,7 @@ describe("DashboardScreen", () => {
       "Trips",
       "Add trip",
       "Calendar events",
+      "Settings",
     ]);
     const header = screen.getByRole("banner");
     expect(within(header).getByRole("link", { name: "Add trip" })).toHaveAttribute("href", "/trips/new");

@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { downloadYearlyEventsPdf, type EventsServices } from "../controllers/yearlyEventsPdfController";
 import type { EventWithMiles } from "../models/event";
 import { defaultEventsServices } from "../services";
-import { formatEventDate, formatMiles } from "../utils/format";
+import { useDistanceUnit } from "../settings/DistanceUnitContext";
+import { formatDistance, totalMiles } from "../utils/distance";
+import { formatEventDate } from "../utils/format";
 import { DownloadPdfControl } from "./DownloadPdfControl";
 
 interface Props {
@@ -15,9 +17,10 @@ type ListState =
   | { status: "error"; message: string }
   | { status: "ready"; events: EventWithMiles[] };
 
-/** Lists this year's events with miles traveled, and offers a yearly PDF download. */
+/** Lists this year's events with the distance traveled in the account's unit, and offers a yearly PDF download. */
 export function EventsListScreen({ accessToken, services = defaultEventsServices }: Props) {
   const year = new Date().getFullYear();
+  const { unit } = useDistanceUnit();
   const [state, setState] = useState<ListState>({ status: "loading" });
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
       <h2>Events</h2>
       <DownloadPdfControl
         onDownload={async (selectedYear) => {
-          await downloadYearlyEventsPdf(selectedYear, accessToken, services);
+          await downloadYearlyEventsPdf(selectedYear, accessToken, services, unit);
         }}
       />
       <h3>{year}</h3>
@@ -52,7 +55,7 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
             <tr>
               <th>Date</th>
               <th>Event</th>
-              <th>Miles traveled</th>
+              <th>Distance traveled</th>
             </tr>
           </thead>
           <tbody>
@@ -60,10 +63,18 @@ export function EventsListScreen({ accessToken, services = defaultEventsServices
               <tr key={event.id}>
                 <td>{formatEventDate(event.date)}</td>
                 <td>{event.name}</td>
-                <td>{formatMiles(event.miles)}</td>
+                <td>{formatDistance(event.miles, unit)}</td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={2}>
+                Total
+              </th>
+              <td>{formatDistance(totalMiles(state.events.map((event) => event.miles)), unit)}</td>
+            </tr>
+          </tfoot>
         </table>
       )}
     </div>

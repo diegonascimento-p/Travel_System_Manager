@@ -1,8 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "../router/navigation";
-import { CalendarIcon, CloseIcon, DashboardIcon, MenuIcon, PlusIcon, RouteIcon } from "./ui/icons";
+import { CalendarIcon, CloseIcon, DashboardIcon, MenuIcon, PlusIcon, RouteIcon, SettingsIcon } from "./ui/icons";
 
-export type NavSection = "dashboard" | "trips" | "newTrip" | "events";
+export type NavSection = "dashboard" | "trips" | "newTrip" | "events" | "settings";
 
 interface Props {
   active: NavSection | null;
@@ -19,6 +19,8 @@ const NAV_ITEMS: { section: NavSection; to: string; label: string; icon: ReactNo
   { section: "newTrip", to: "/trips/new", label: "Add trip", icon: <PlusIcon /> },
   { section: "events", to: "/events", label: "Calendar events", icon: <CalendarIcon /> },
 ];
+
+const ACCOUNT_ITEMS: typeof NAV_ITEMS = [{ section: "settings", to: "/settings", label: "Settings", icon: <SettingsIcon /> }];
 
 /**
  * The HireFlow-style frame shared by every screen: a sidebar with the navigation and a header
@@ -53,21 +55,9 @@ export function AppShell({ active, title, description, actions, children }: Prop
         </div>
         <nav aria-label="Main">
           <p className="sidebar-group-label">Mileage</p>
-          <ul className="sidebar-nav">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.section}>
-                <Link
-                  to={item.to}
-                  className={`sidebar-link${item.section === active ? " active" : ""}`}
-                  aria-current={item.section === active ? "page" : undefined}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <NavList items={NAV_ITEMS} active={active} onNavigate={() => setMenuOpen(false)} />
+          <p className="sidebar-group-label">Account</p>
+          <NavList items={ACCOUNT_ITEMS} active={active} onNavigate={() => setMenuOpen(false)} />
         </nav>
       </aside>
       <div className="sidebar-overlay" aria-hidden="true" onClick={() => setMenuOpen(false)} />
@@ -92,5 +82,31 @@ export function AppShell({ active, title, description, actions, children }: Prop
         <main className="app-content">{children}</main>
       </div>
     </div>
+  );
+}
+
+interface NavListProps {
+  items: typeof NAV_ITEMS;
+  active: NavSection | null;
+  onNavigate(): void;
+}
+
+function NavList({ items, active, onNavigate }: NavListProps) {
+  return (
+    <ul className="sidebar-nav">
+      {items.map((item) => (
+        <li key={item.section}>
+          <Link
+            to={item.to}
+            className={`sidebar-link${item.section === active ? " active" : ""}`}
+            aria-current={item.section === active ? "page" : undefined}
+            onClick={onNavigate}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

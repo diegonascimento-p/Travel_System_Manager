@@ -11,10 +11,10 @@ describe("renderEventsPdf", () => {
     const pdf = renderEventsPdf(report).output();
 
     expect(pdf.startsWith("%PDF-")).toBe(true);
-    expect(pdf).toContain("(Miles traveled in 2024)");
+    expect(pdf).toContain("(Distance traveled in 2024)");
     expect(pdf).toContain("(15 March 2024)");
     expect(pdf).toContain("(Client visit - Acme)");
-    expect(pdf).toContain("(42)");
+    expect(pdf).toContain("(42.0 mi)");
   });
 });
 
@@ -29,7 +29,7 @@ describe("downloadEventsPdf", () => {
     await vi.waitFor(() => expect(dispatch).toHaveBeenCalled());
     expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("application/pdf");
     const anchor = dispatch.mock.contexts[0] as HTMLAnchorElement;
-    expect(anchor.download).toBe("miles-traveled-2024.pdf");
+    expect(anchor.download).toBe("distance-traveled-2024.pdf");
     expect(anchor.href).toBe("blob:report");
     vi.restoreAllMocks();
   });

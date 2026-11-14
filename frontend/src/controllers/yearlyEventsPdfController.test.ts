@@ -22,9 +22,21 @@ describe("downloadYearlyEventsPdf", () => {
     expect(services.fetchEventsForYear).toHaveBeenCalledWith(2024, "token", origin);
     expect(services.downloadEventsPdf).toHaveBeenCalledWith(
       expect.objectContaining({
-        fileName: "miles-traveled-2024.pdf",
-        rows: [["15 March 2024", "Client visit - Acme", "42"]],
+        fileName: "distance-traveled-2024.pdf",
+        rows: [["15 March 2024", "Client visit - Acme", "42.0 mi"]],
       }),
+    );
+  });
+
+  it("writes the distances in the chosen unit", async () => {
+    const services = servicesReturning([
+      { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 10 },
+    ]);
+
+    await downloadYearlyEventsPdf(2024, "token", services, "km");
+
+    expect(services.downloadEventsPdf).toHaveBeenCalledWith(
+      expect.objectContaining({ rows: [["15 March 2024", "Client visit - Acme", "16.1 km"]] }),
     );
   });
 
