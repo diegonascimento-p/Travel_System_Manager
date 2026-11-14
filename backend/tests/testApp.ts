@@ -1,4 +1,5 @@
 import { createApp, type AppDependencies } from "../src/app.js";
+import { SqliteEventMileageRepository } from "../src/repositories/SqliteEventMileageRepository.js";
 import { SqliteUserProfileRepository } from "../src/repositories/SqliteUserProfileRepository.js";
 import { FakeDistanceCalculator, FakeGeocoder, FakeUserIdentityRepository, InMemoryEventRepository } from "./fakes.js";
 import { migratedDatabase } from "./tripDatabase.js";
@@ -14,6 +15,7 @@ export function testApp(overrides: Partial<AppDependencies> = {}) {
     tripRepository: new SqliteTripRepository(db),
     userIdentityRepository: new FakeUserIdentityRepository(),
     userProfileRepository: new SqliteUserProfileRepository(db),
+    eventMileageRepository: new SqliteEventMileageRepository(db),
     ...overrides,
   });
 }

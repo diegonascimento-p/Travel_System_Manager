@@ -14,15 +14,18 @@ export interface CalendarEvent {
   location: string | null;
 }
 
-/** A calendar event with the miles traveled to reach its location. */
+/** A calendar event with the round-trip distance traveled to reach its location and come back. */
 export interface EventWithMiles {
   id: string;
   name: string;
   date: string;
   location: string | null;
   /**
-   * Driving miles from the user's base address to the event location; null when there is no base
-   * address, the event has no location, or Google Maps cannot route between them.
+   * Round-trip driving meters: base address to the event location plus the location back to the
+   * base address. Null when there is no base address, the event has no location, or Google Maps
+   * cannot find or route to it.
    */
+  distanceMeters: number | null;
+  /** `distanceMeters` in miles; null when `distanceMeters` is null. */
   miles: number | null;
 }

@@ -23,8 +23,13 @@ export class UserProfileService {
   ) {}
 
   async getProfile(accessToken: string): Promise<UserProfile> {
+    return (await this.getUserProfile(accessToken)).profile;
+  }
+
+  /** The signed-in user's id together with their profile. */
+  async getUserProfile(accessToken: string): Promise<{ userId: string; profile: UserProfile }> {
     const userId = await this.identities.findUserId(accessToken);
-    return (await this.profiles.findByUserId(userId)) ?? EMPTY_PROFILE;
+    return { userId, profile: (await this.profiles.findByUserId(userId)) ?? EMPTY_PROFILE };
   }
 
   /** Validates and saves the settings, replacing the previous values. An empty base address clears it. */

@@ -2,6 +2,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { EventsController } from "./controllers/EventsController.js";
 import { SettingsController } from "./controllers/SettingsController.js";
 import { TripsController } from "./controllers/TripsController.js";
+import type { EventMileageRepository } from "./repositories/EventMileageRepository.js";
 import type { EventRepository } from "./repositories/EventRepository.js";
 import type { TripRepository } from "./repositories/TripRepository.js";
 import type { UserIdentityRepository } from "./repositories/UserIdentityRepository.js";
@@ -22,12 +23,13 @@ export interface AppDependencies {
   tripRepository: TripRepository;
   userIdentityRepository: UserIdentityRepository;
   userProfileRepository: UserProfileRepository;
+  eventMileageRepository: EventMileageRepository;
 }
 
 export function createApp(deps: AppDependencies): Express {
   const app = express();
   const profiles = new UserProfileService(deps.userIdentityRepository, deps.userProfileRepository, deps.geocoder);
-  const events = new EventMilesService(deps.eventRepository, profiles, deps.distanceCalculator);
+  const events = new EventMilesService(deps.eventRepository, profiles, deps.distanceCalculator, deps.eventMileageRepository);
 
   app.use("/api/trips", tripsRoutes(new TripsController(new TripService(deps.tripRepository))));
   app.use("/api/settings", settingsRoutes(new SettingsController(profiles)));

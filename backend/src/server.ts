@@ -3,6 +3,7 @@ import { openDatabase } from "./db/database.js";
 import { runMigrations } from "./db/migrate.js";
 import { GoogleCalendarEventRepository } from "./repositories/GoogleCalendarEventRepository.js";
 import { GoogleCalendarUserIdentityRepository } from "./repositories/GoogleCalendarUserIdentityRepository.js";
+import { SqliteEventMileageRepository } from "./repositories/SqliteEventMileageRepository.js";
 import { SqliteTripRepository } from "./repositories/SqliteTripRepository.js";
 import { SqliteUserProfileRepository } from "./repositories/SqliteUserProfileRepository.js";
 import { GoogleDistanceMatrix } from "./services/GoogleDistanceMatrix.js";
@@ -25,6 +26,7 @@ const app = createApp({
   tripRepository: new SqliteTripRepository(db),
   userIdentityRepository: new GoogleCalendarUserIdentityRepository(),
   userProfileRepository: new SqliteUserProfileRepository(db),
+  eventMileageRepository: new SqliteEventMileageRepository(db),
 });
 
 app.listen(port, () => {
