@@ -1,14 +1,17 @@
 # Travel System Manager
 
 Tracks the miles traveled for work, calculated from your Google Calendar events: for each
-event, the Google Maps driving distance from your saved base address to the event's location.
+event, the Google Maps round-trip driving distance from your saved base address to the event's location and back.
 
 ## Structure
 
 - `backend/` – TypeScript + Express API (Google access token in the `Authorization: Bearer` header):
-  - `GET /api/events?year=YYYY` – the year's Google Calendar events with `miles`, the driving
-    distance from the user's base address (Google Distance Matrix API); `miles` is null when no
-    base address is saved or the location cannot be routed.
+  - `GET /api/events?year=YYYY` – the year's Google Calendar events with `distanceMeters` (and
+    `miles`), the round-trip driving distance from the user's base address to the event's location
+    and back (two Google Distance Matrix legs). It is calculated when the events are loaded, saved
+    in the `event_mileage` table, and recalculated when the base address or the event's location
+    changes. Both are null when no base address is saved, the event has no location, or the location
+    cannot be found; when Google Maps fails as a whole nothing is saved and it is retried next load.
   - `GET /api/settings`, `PUT /api/settings` (`{ "baseAddress": "..." }`) – the base address saved
     on the user's profile, keyed by their Google account. It is checked with the Geocoding API;
     an empty value clears it.
