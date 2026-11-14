@@ -6,23 +6,18 @@ import { GoogleCalendarUserIdentityRepository } from "./repositories/GoogleCalen
 import { SqliteEventMileageRepository } from "./repositories/SqliteEventMileageRepository.js";
 import { SqliteTripRepository } from "./repositories/SqliteTripRepository.js";
 import { SqliteUserProfileRepository } from "./repositories/SqliteUserProfileRepository.js";
-import { GoogleDistanceMatrix } from "./services/GoogleDistanceMatrix.js";
-import { GoogleGeocoder } from "./services/GoogleGeocoder.js";
-
-const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-if (!apiKey) {
-  throw new Error("GOOGLE_MAPS_API_KEY must be set");
-}
+import { createMapServices } from "./services/mapServices.js";
 
 const port = Number(process.env.PORT ?? 3001);
 const db = openDatabase(process.env.DATABASE_PATH ?? "data/travel.db");
 const applied = runMigrations(db);
 if (applied.length > 0) console.log(`Applied migrations: ${applied.join(", ")}`);
 
+const { geocoder, distanceCalculator } = createMapServices(process.env);
 const app = createApp({
   eventRepository: new GoogleCalendarEventRepository(),
-  geocoder: new GoogleGeocoder(apiKey),
-  distanceCalculator: new GoogleDistanceMatrix(apiKey),
+  geocoder,
+  distanceCalculator,
   tripRepository: new SqliteTripRepository(db),
   userIdentityRepository: new GoogleCalendarUserIdentityRepository(),
   userProfileRepository: new SqliteUserProfileRepository(db),
