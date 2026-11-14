@@ -6,9 +6,9 @@ import { EventsListScreen } from "./EventsListScreen";
 
 const eventsByYear: Record<number, EventWithMiles[]> = {
   2024: [
-    { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", miles: 42 },
-    { id: "b", name: "Workshop", date: "2024-06-01", location: "Hall", miles: 7.5 },
-    { id: "c", name: "Review", date: "2024-12-31", location: "Office", miles: 3 },
+    { id: "a", name: "Client visit - Acme", date: "2024-03-15", location: "Acme HQ", distanceMeters: 67_592, miles: 42 },
+    { id: "b", name: "Workshop", date: "2024-06-01", location: "Hall", distanceMeters: 12_070, miles: 7.5 },
+    { id: "c", name: "Review", date: "2024-12-31", location: "Office", distanceMeters: 4_828, miles: 3 },
   ],
 };
 
@@ -29,7 +29,7 @@ describe("EventsListScreen", () => {
     expect(select.closest(".download-pdf")).toBe(button.closest(".download-pdf"));
     expect(select).toHaveValue(String(new Date().getFullYear()));
     expect(screen.getByRole("option", { name: "1900" })).toBeInTheDocument();
-    await screen.findByText(/No events this year|Miles traveled/);
+    await screen.findByText(/No events this year|Round trip/);
   });
 
   it("downloads a PDF listing every event of the selected year", async () => {
@@ -82,17 +82,56 @@ describe("EventsListScreen", () => {
     expect(services.downloadEventsPdf).not.toHaveBeenCalled();
   });
 
-  it("lists the current year's events with date, name and miles", async () => {
+  function renderCurrentYear(events: Omit<EventWithMiles, "date">[], unit?: "miles" | "kilometers") {
     const year = new Date().getFullYear();
-    eventsByYear[year] = [
-      { id: "x", name: "Client visit - Acme", date: `${year}-03-15`, location: "Acme HQ", miles: 42 },
-    ];
-    render(<EventsListScreen accessToken="token" services={makeServices()} />);
+    const services = makeServices({
+      fetchEventsForYear: vi.fn(async () => ({
+        baseAddress: "Home" as string | null,
+        events: events.map((event, i) => ({ ...event, date: `${year}-03-${String(i + 10)}` })),
+      })),
+    });
+    render(<EventsListScreen accessToken="token" services={services} unit={unit} />);
+    return year;
+  }
+
+  const rowOf = (name: string) => screen.getByText(name).closest("tr")!;
+
+  it("lists the current year's events with date, name and round-trip distance next to each", async () => {
+    const year = renderCurrentYear([
+      { id: "x", name: "Client visit - Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 },
+      { id: "y", name: "Office", location: "Office", distanceMeters: 3_218.688, miles: 2 },
+    ]);
 
     expect(await screen.findByText("Client visit - Acme")).toBeInTheDocument();
-    expect(screen.getByText(`15 March ${year}`)).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
-    delete eventsByYear[year];
+    expect(screen.getByText(`10 March ${year}`)).toBeInTheDocument();
+    expect(rowOf("Client visit - Acme")).toHaveTextContent("10 mi");
+    expect(rowOf("Office")).toHaveTextContent("2 mi");
+  });
+
+  it("shows the distance in miles when the unit setting is miles", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 16_093.44, miles: 10 }], "miles");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme")).toHaveTextContent("10 mi");
+  });
+
+  it("shows the distance in kilometers when the unit setting is kilometers", async () => {
+    renderCurrentYear([{ id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 21_000, miles: 13.05 }], "kilometers");
+    await screen.findByText("Acme");
+    expect(rowOf("Acme")).toHaveTextContent("21 km");
+  });
+
+  it("shows no distance for events without a location or whose location cannot be found, and the others normally", async () => {
+    renderCurrentYear([
+      { id: "n", name: "No location", location: null, distanceMeters: null, miles: null },
+      { id: "u", name: "Atlantis trip", location: "Atlantis", distanceMeters: null, miles: null },
+      { id: "x", name: "Acme", location: "Acme HQ", distanceMeters: 21_000, miles: 13.05 },
+    ], "kilometers");
+
+    await screen.findByText("Acme");
+    expect(rowOf("No location").lastElementChild).toHaveTextContent(/^$/);
+    expect(rowOf("Atlantis trip").lastElementChild).toHaveTextContent(/^$/);
+    expect(rowOf("Acme")).toHaveTextContent("21 km");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("says which base address the miles are measured from", async () => {

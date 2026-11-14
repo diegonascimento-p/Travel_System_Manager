@@ -1,11 +1,16 @@
-/** An event with the driving miles from the user's base address to its location. */
+/** An event with the round-trip driving distance between the user's base address and its location. */
 export interface EventWithMiles {
   id: string;
   name: string;
   /** Local date of the event, YYYY-MM-DD. */
   date: string;
   location: string | null;
-  /** Null without a base address, or when the event has no location Google Maps can route to. */
+  /**
+   * Round-trip driving meters (base address to location and back). Null without a base address,
+   * or when the event has no location Google Maps can find.
+   */
+  distanceMeters: number | null;
+  /** `distanceMeters` in miles; null when unknown. */
   miles: number | null;
 }
 
