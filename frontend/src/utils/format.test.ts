@@ -1,4 +1,4 @@
-import { formatEventDate, formatMiles } from "./format";
+import { formatDistance, formatEventDate, formatMiles } from "./format";
 
 describe("formatEventDate", () => {
   it("shows day, month name and year", () => {
@@ -16,5 +16,13 @@ describe("formatMiles", () => {
 
   it("shows N/A when miles are unknown", () => {
     expect(formatMiles(null)).toBe("N/A");
+  });
+});
+
+describe("formatDistance", () => {
+  it("shows miles with at most one decimal and thousands separators", () => {
+    expect(formatDistance(0)).toBe("0 mi");
+    expect(formatDistance(42.46)).toBe("42.5 mi");
+    expect(formatDistance(1234.5)).toBe("1,234.5 mi");
   });
 });
